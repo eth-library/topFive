@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"sort"
 	"time"
@@ -15,7 +17,18 @@ import (
 // -l <layout> - the layout of the datetime in the log file
 // tail -F -n 1 ssl_access_atmire_log | awk '{sub(/\[/,"",$4);sub(/\]/,"",$5);print $1","$4,$5}'
 
-var layout = "02/Jan/2006:15:04:05 -0700"
+var (
+	_, ApplicationName = SeparateFileFromPath(os.Args[0])
+	configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
+	config             ApplicationConfig
+	LogIt              *slog.Logger
+	LogFile            = flag.String("f", "testdata/access-2024-10-11.log", "use -f to provide a custom path to the file  to parse (default: testdata/access-2024-10-11.log)")
+)
+
+type File struct {
+	FileName string `json:"fileName"`
+	FilePath string `json:"filePath"`
+}
 
 func get_top_ips(ip_count map[string]int) map[string]int {
 	// returns the five ip addresses with the highest request count
@@ -63,7 +76,7 @@ func full_file_topreq_ips() map[string]int {
 
 func retrieve_records(timestamps ...time.Time) map[string]int {
 	// retrieves the records from the log file within a time range or of the whole file
-	file, err := os.Open("testdata/access-2024-10-11.log")
+	file, err := os.Open(*LogFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -83,7 +96,7 @@ func retrieve_records(timestamps ...time.Time) map[string]int {
 	} else {
 		start_time, end_time := timestamps[0], timestamps[1]
 		for _, record := range records {
-			rtime, _ := time.Parse(layout, record[1])
+			rtime, _ := time.Parse(config.Layout, record[1])
 			if start_time.Before(rtime) && end_time.After(rtime) {
 				ip_count[record[0]]++
 			}
@@ -110,9 +123,13 @@ func print_sorted(IP_rcount map[string]int) {
 }
 
 func main() {
-	start_time, _ := time.Parse(layout, "11/Oct/2024:07:30:00 +0200")
-	end_time, _ := time.Parse(layout, "11/Oct/2024:08:30:00 +0200")
-	fmt.Println(start_time, " <> ", end_time)
+	flag.Parse()
+	config.Initialize(configPath)
+	// now setup logging
+	// LogIt = SetupLogging(config.Logcfg)
+	fmt.Println("LogLevel is set to " + config.Logcfg.LogLevel)
+	start_time, _ := time.Parse(config.Layout, "11/Oct/2024:07:30:00 +0200")
+	end_time, _ := time.Parse(config.Layout, "11/Oct/2024:08:30:00 +0200")
 
 	IP_rcount := retrieve_records(start_time, end_time)
 
