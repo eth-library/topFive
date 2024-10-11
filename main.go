@@ -5,34 +5,52 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"time"
 )
 
-func get_top_ip(records [][]string, start_times string, end_times string) (string, int) {
-	datetime_layout := "02/Jan/2006:15:04:05 Z0700"
-	start_time, _ := time.Parse(datetime_layout, start_times)
-	end_time, _ := time.Parse(datetime_layout, end_times)
-	fmt.Println(start_time, " <> ", end_time)
-	ip_count := make(map[string]int)
-	for _, record := range records {
-		rtimestamp, _ := time.Parse(datetime_layout, record[1])
-		if start_time.Before(rtimestamp) && end_time.After(rtimestamp) {
-			fmt.Println(rtimestamp)
-			ip_count[record[0]]++
+// Notes
+// options:
+// -f <filename> - the name of the log file to watch
+// -l <layout> - the layout of the datetime in the log file
+// tail -F -n 1 ssl_access_atmire_log | awk '{sub(/\[/,"",$4);sub(/\]/,"",$5);print $1","$4,$5}'
+// output actually not sorted...
+
+var layout = "02/Jan/2006:15:04:05 -0700"
+
+func get_top_ips(ip_count map[string]int) map[string]int {
+	top_ips := make(map[string]int)
+	entries := len(ip_count)
+	if entries > 0 {
+		ips := make([]string, 0, entries)
+		for ip := range ip_count {
+			ips = append(ips, ip)
+		}
+		sort.SliceStable(ips, func(i, j int) bool {
+			return ip_count[ips[i]] > ip_count[ips[j]]
+		})
+		top := 5
+		if entries < 5 {
+			top = entries
+		}
+		for i := 0; i < top; i++ {
+			top_ips[ips[i]] = ip_count[ips[i]]
 		}
 	}
-	max_ip := ""
-	max_count := 0
-	for ip, count := range ip_count {
-		if count > max_count {
-			max_count = count
-			max_ip = ip
-		}
-	}
-	return max_ip, max_count
+	return top_ips
 }
 
-func main() {
+func last5min_topreq_ips() map[string]int {
+	starttime := time.Now().Add(-5 * time.Minute)
+	endtime := time.Now()
+
+	IP_rcount := retrieve_records(starttime, endtime)
+
+	top_ips := get_top_ips(IP_rcount)
+	return top_ips
+}
+
+func retrieve_records(start_time time.Time, end_time time.Time) map[string]int {
 	file, err := os.Open("testdata/access-2024-10-11.log")
 	if err != nil {
 		log.Fatal(err)
@@ -44,7 +62,29 @@ func main() {
 	if err != nil {
 		fmt.Println("Error reading records", err)
 	}
+	ip_count := make(map[string]int)
+	for _, record := range records {
+		rtime, _ := time.Parse(layout, record[1])
+		if start_time.Before(rtime) && end_time.After(rtime) {
+			ip_count[record[0]]++
+		}
+	}
+	return ip_count
+}
 
-	top_ip, req_count := get_top_ip(records, "11/Oct/2024:07:30:00 +0200", "11/Oct/2024:08:30:00 +0200")
-	fmt.Println("Top IP:", top_ip, ", (", req_count, ") requests")
+func main() {
+	start_time, _ := time.Parse(layout, "11/Oct/2024:07:30:00 +0200")
+	end_time, _ := time.Parse(layout, "11/Oct/2024:08:30:00 +0200")
+	fmt.Println(start_time, " <> ", end_time)
+
+	IP_rcount := retrieve_records(start_time, end_time)
+
+	top_ips := get_top_ips(IP_rcount)
+	for ip, count := range top_ips {
+		fmt.Println("IP:", ip, ", (", count, ") requests")
+	}
+	last5min := last5min_topreq_ips()
+	for ip, count := range last5min {
+		fmt.Println("IP:", ip, ", (", count, ") requests")
+	}
 }
