@@ -29,11 +29,10 @@ func get_top_ips(ip_count map[string]int) map[string]int {
 		sort.SliceStable(ips, func(i, j int) bool {
 			return ip_count[ips[i]] > ip_count[ips[j]]
 		})
-		top := 5
-		if entries < 5 {
-			top = entries
+		if entries > 5 {
+			entries = 5
 		}
-		for i := 0; i < top; i++ {
+		for i := 0; i < entries; i++ {
 			top_ips[ips[i]] = ip_count[ips[i]]
 		}
 	}
@@ -72,6 +71,22 @@ func retrieve_records(start_time time.Time, end_time time.Time) map[string]int {
 	return ip_count
 }
 
+func print_sorted(IP_rcount map[string]int) {
+	entries := len(IP_rcount)
+	if entries > 0 {
+		ips := make([]string, 0, entries)
+		for ip := range IP_rcount {
+			ips = append(ips, ip)
+		}
+		sort.SliceStable(ips, func(i, j int) bool {
+			return IP_rcount[ips[i]] > IP_rcount[ips[j]]
+		})
+		for _, ip := range ips {
+			fmt.Println("\t", ip, "\t", IP_rcount[ip])
+		}
+	}
+}
+
 func main() {
 	start_time, _ := time.Parse(layout, "11/Oct/2024:07:30:00 +0200")
 	end_time, _ := time.Parse(layout, "11/Oct/2024:08:30:00 +0200")
@@ -80,11 +95,11 @@ func main() {
 	IP_rcount := retrieve_records(start_time, end_time)
 
 	top_ips := get_top_ips(IP_rcount)
-	for ip, count := range top_ips {
-		fmt.Println("IP:", ip, ", (", count, ") requests")
-	}
+	fmt.Println("Top 5 IPs in the whole file:")
+	fmt.Println("2 be done")
+	fmt.Println("Top 5 IPs in between", start_time, " and ", end_time)
+	print_sorted(top_ips)
 	last5min := last5min_topreq_ips()
-	for ip, count := range last5min {
-		fmt.Println("IP:", ip, ", (", count, ") requests")
-	}
+	fmt.Println("Top 5 IPs in the last 5 minutes:")
+	print_sorted(last5min)
 }
