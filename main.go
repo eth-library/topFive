@@ -22,13 +22,8 @@ var (
 	configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
 	config             ApplicationConfig
 	LogIt              *slog.Logger
-	LogFile            = flag.String("f", "testdata/access-2024-10-11.log", "use -f to provide a custom path to the file  to parse (default: testdata/access-2024-10-11.log)")
+	file2parse         = flag.String("f", "testdata/access-2024-10-11.log", "use -f to provide a custom path to the file  to parse (default: testdata/access-2024-10-11.log)")
 )
-
-type File struct {
-	FileName string `json:"fileName"`
-	FilePath string `json:"filePath"`
-}
 
 func get_top_ips(ip_count map[string]int) map[string]int {
 	// returns the five ip addresses with the highest request count
@@ -76,7 +71,7 @@ func full_file_topreq_ips() map[string]int {
 
 func retrieve_records(timestamps ...time.Time) map[string]int {
 	// retrieves the records from the log file within a time range or of the whole file
-	file, err := os.Open(*LogFile)
+	file, err := os.Open(*file2parse)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,6 +119,7 @@ func print_sorted(IP_rcount map[string]int) {
 
 func main() {
 	flag.Parse()
+
 	config.Initialize(configPath)
 	// now setup logging
 	// LogIt = SetupLogging(config.Logcfg)
