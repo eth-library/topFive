@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"time"
@@ -19,41 +20,13 @@ import (
 var (
 	_, ApplicationName = SeparateFileFromPath(os.Args[0])
 	// configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
-	// config             ApplicationConfig
-	// LogIt              *slog.Logger
-	file2parse   = flag.String("f", "testdata/access-2024-10-11.log", "use -f to provide a custom path to the file  to parse (default: testdata/access-2024-10-11.log)")
-	time2analyze = flag.Int("m", 5, "use -t to provide a custom time range (in minutes) to analyze (default: 5)")
-	time2gofrom  = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom time range (in minutes) to analyze (default: time.Now())")
+	config        ApplicationConfig
+	LogIt         *slog.Logger
+	time2analyze  = flag.Int("m", 5, "use -t to provide a custom time range (in minutes) to analyze (default: 5)")
+	time2gofrom   = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom time range (in minutes) to analyze (default: time.Now())")
+	log_2_analyze *Log2Analyze
+	file2parse    = flag.String("f", "/Users/sven/temp/rc-logs/prod-logs10/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /Users/sven/temp/rc-logs/prod-logs10/ssl_access_atmire_log)")
 )
-
-func get_top_ips(ip_count map[string]int) map[string]int {
-	// returns the five ip addresses with the highest request count
-	// to prevent it from crashing, when the given map ip_count, we check the length
-	// of the map and if it is empty, we return an empty map
-	// if the map is not empty, we sort the map by the request count and return the top 5 or less
-	top_ips := make(map[string]int)
-	entries := len(ip_count)
-	if entries > 0 {
-		// build a slice of the keys of the map, so we can sort it to gett the top 5
-		ips := make([]string, 0, entries)
-		for ip := range ip_count {
-			ips = append(ips, ip)
-		}
-		// sort the slice by the request count
-		sort.SliceStable(ips, func(i, j int) bool {
-			return ip_count[ips[i]] > ip_count[ips[j]]
-		})
-		if entries > 5 {
-			entries = 5
-		}
-		// get the top 5 or less, if there are less than 5 entries
-		// be aware, that the resulting map (top_ips) is not ordered!
-		for i := 0; i < entries; i++ {
-			top_ips[ips[i]] = ip_count[ips[i]]
-		}
-	}
-	return top_ips
-}
 
 func print_sorted(IP_rcount map[string]int) {
 	// maps are not ordered, so we need to sort the map by the request count
@@ -71,6 +44,7 @@ func print_sorted(IP_rcount map[string]int) {
 		// third step: iterate over the sorted slice and print the ip and the request count
 		for _, ip := range ips {
 			fmt.Println("\t", ip, "\t", IP_rcount[ip])
+			LogIt.Info("  " + fmt.Sprintf("%v", ip) + " : " + fmt.Sprintf("%v", IP_rcount[ip]))
 		}
 	}
 }
@@ -78,8 +52,8 @@ func print_sorted(IP_rcount map[string]int) {
 func create_time_range() (time.Time, time.Time) {
 	// creates a time range to analyze the log file
 	// the range is defined by the time2analyze flag
-	endtimestring := fmt.Sprintf("%s %s", time.Now().Format("2006-01-02"), *time2gofrom)
-	endtime, _ := time.Parse("2006-01-02 15:04", endtimestring)
+	endtimestring := fmt.Sprintf("%s %s:00 %s", time.Now().Format("2006-01-02"), *time2gofrom, time.Now().Local().Format("Z0700"))
+	endtime, _ := time.Parse("2006-01-02 15:04:05 -0700", endtimestring)
 	starttime := endtime.Add(time.Duration(-*time2analyze) * time.Minute)
 	return starttime, endtime
 }
@@ -87,22 +61,29 @@ func create_time_range() (time.Time, time.Time) {
 func main() {
 	flag.Parse()
 
+	cfgpath := "conf.d/examplecfg.yml"
+	config.Initialize(&cfgpath)
+	// now setup logging
+	LogIt = SetupLogging(config.Logcfg)
+	fmt.Println("LogLevel is set to " + config.Logcfg.LogLevel)
+
 	starttime, endtime := create_time_range()
-
+	// var log_2_analyze Log2Analyze
+	log_2_analyze = new(Log2Analyze)
+	log_2_analyze.DateLayout = "02/Jan/2006:15:04:05 Z0700"
+	log_2_analyze.FileName = *file2parse
+	// var records Log
 	if isFlagPassed("w") {
-		records := retrieve_records(file2parse)
+		fmt.Println("Going to parse the whole file")
+		log_2_analyze.RetrieveEntries()
 	} else {
-		records := retrieve_records(file2parse, starttime, endtime)
+		fmt.Println("Going to parse the file from", starttime, " to ", endtime)
+		LogIt.Info("Going to parse the file from" + fmt.Sprintf("%v", starttime) + " to " + fmt.Sprintf("%v", endtime))
+		log_2_analyze.RetrieveEntries(starttime, endtime)
 	}
-	IP_rcount := retrieve_records(starttime, endtime)
 
-	top_overall := full_file_topreq_ips()
-	fmt.Println("Top 5 IPs in the whole file:")
-	print_sorted(top_overall)
-	top_ips := get_top_ips(IP_rcount)
+	top_ips := log_2_analyze.GetTopIPs()
 	fmt.Println("Top 5 IPs in between", starttime, " and ", endtime)
+	LogIt.Info("Top 5 IPs in between" + fmt.Sprintf("%v", starttime) + " and " + fmt.Sprintf("%v", endtime))
 	print_sorted(top_ips)
-	last5min := last5min_topreq_ips()
-	fmt.Println("Top 5 IPs in the last 5 minutes:")
-	print_sorted(last5min)
 }
