@@ -1,11 +1,8 @@
 package main
 
 import (
-	"encoding/csv"
 	"flag"
 	"fmt"
-	"log"
-	"log/slog"
 	"os"
 	"sort"
 	"time"
@@ -16,13 +13,17 @@ import (
 // -f <filename> - the name of the log file to watch
 // -l <layout> - the layout of the datetime in the log file
 // tail -F -n 1 ssl_access_atmire_log | awk '{sub(/\[/,"",$4);sub(/\]/,"",$5);print $1","$4,$5}'
+// no configs etc - simply tailored for our one specific case
+// Verallgemeinerungen später
 
 var (
 	_, ApplicationName = SeparateFileFromPath(os.Args[0])
-	configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
-	config             ApplicationConfig
-	LogIt              *slog.Logger
-	file2parse         = flag.String("f", "testdata/access-2024-10-11.log", "use -f to provide a custom path to the file  to parse (default: testdata/access-2024-10-11.log)")
+	// configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
+	// config             ApplicationConfig
+	// LogIt              *slog.Logger
+	file2parse   = flag.String("f", "testdata/access-2024-10-11.log", "use -f to provide a custom path to the file  to parse (default: testdata/access-2024-10-11.log)")
+	time2analyze = flag.Int("m", 5, "use -t to provide a custom time range (in minutes) to analyze (default: 5)")
+	time2gofrom  = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom time range (in minutes) to analyze (default: time.Now())")
 )
 
 func get_top_ips(ip_count map[string]int) map[string]int {
@@ -54,56 +55,6 @@ func get_top_ips(ip_count map[string]int) map[string]int {
 	return top_ips
 }
 
-func last5min_topreq_ips() map[string]int {
-	// returns the five ip addresses with the highest request count within the last 5 minutes
-	starttime := time.Now().Add(-5 * time.Minute)
-	endtime := time.Now()
-
-	IP_rcount := retrieve_records(starttime, endtime)
-
-	top_ips := get_top_ips(IP_rcount)
-	return top_ips
-}
-
-func full_file_topreq_ips() map[string]int {
-	// returns the five ip addresses with the highest request count in the whole file
-	IP_rcount := retrieve_records()
-
-	top_ips := get_top_ips(IP_rcount)
-	return top_ips
-}
-
-func retrieve_records(timestamps ...time.Time) map[string]int {
-	// retrieves the records from the log file within a time range or of the whole file
-	file, err := os.Open(*file2parse)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		fmt.Println("Error reading records", err)
-	}
-	ip_count := make(map[string]int)
-	if len(timestamps) == 0 {
-		for _, record := range records {
-			ip_count[record[0]]++
-		}
-		return ip_count
-	} else {
-		start_time, end_time := timestamps[0], timestamps[1]
-		for _, record := range records {
-			rtime, _ := time.Parse(config.Layout, record[1])
-			if start_time.Before(rtime) && end_time.After(rtime) {
-				ip_count[record[0]]++
-			}
-		}
-	}
-	return ip_count
-}
-
 func print_sorted(IP_rcount map[string]int) {
 	// maps are not ordered, so we need to sort the map by the request count
 	entries := len(IP_rcount)
@@ -124,23 +75,32 @@ func print_sorted(IP_rcount map[string]int) {
 	}
 }
 
+func create_time_range() (time.Time, time.Time) {
+	// creates a time range to analyze the log file
+	// the range is defined by the time2analyze flag
+	endtimestring := fmt.Sprintf("%s %s", time.Now().Format("2006-01-02"), *time2gofrom)
+	endtime, _ := time.Parse("2006-01-02 15:04", endtimestring)
+	starttime := endtime.Add(time.Duration(-*time2analyze) * time.Minute)
+	return starttime, endtime
+}
+
 func main() {
 	flag.Parse()
 
-	config.Initialize(configPath)
-	// now setup logging
-	// LogIt = SetupLogging(config.Logcfg)
-	fmt.Println("LogLevel is set to " + config.Logcfg.LogLevel)
-	start_time, _ := time.Parse(config.Layout, "11/Oct/2024:07:30:00 +0200")
-	end_time, _ := time.Parse(config.Layout, "11/Oct/2024:08:30:00 +0200")
+	starttime, endtime := create_time_range()
 
-	IP_rcount := retrieve_records(start_time, end_time)
+	if isFlagPassed("w") {
+		records := retrieve_records(file2parse)
+	} else {
+		records := retrieve_records(file2parse, starttime, endtime)
+	}
+	IP_rcount := retrieve_records(starttime, endtime)
 
 	top_overall := full_file_topreq_ips()
 	fmt.Println("Top 5 IPs in the whole file:")
 	print_sorted(top_overall)
 	top_ips := get_top_ips(IP_rcount)
-	fmt.Println("Top 5 IPs in between", start_time, " and ", end_time)
+	fmt.Println("Top 5 IPs in between", starttime, " and ", endtime)
 	print_sorted(top_ips)
 	last5min := last5min_topreq_ips()
 	fmt.Println("Top 5 IPs in the last 5 minutes:")

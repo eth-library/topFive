@@ -53,10 +53,3 @@ func (config *ApplicationConfig) setDefaults() {
 type File2Parse struct {
 	FileName string
 }
-
-type LogEntry struct {
-	IP      string
-	Time    string
-	Request string
-	Code    string
-}

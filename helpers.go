@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"hash"
 	"io"
@@ -13,6 +14,17 @@ import (
 // ===============
 // general helpers
 // ===============
+
+func isFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
 func StringInSlice(name string, sl []string) bool {
 	for _, value := range sl {
 		if value == name {
