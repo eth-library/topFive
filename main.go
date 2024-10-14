@@ -33,16 +33,20 @@ func get_top_ips(ip_count map[string]int) map[string]int {
 	top_ips := make(map[string]int)
 	entries := len(ip_count)
 	if entries > 0 {
+		// build a slice of the keys of the map, so we can sort it to gett the top 5
 		ips := make([]string, 0, entries)
 		for ip := range ip_count {
 			ips = append(ips, ip)
 		}
+		// sort the slice by the request count
 		sort.SliceStable(ips, func(i, j int) bool {
 			return ip_count[ips[i]] > ip_count[ips[j]]
 		})
 		if entries > 5 {
 			entries = 5
 		}
+		// get the top 5 or less, if there are less than 5 entries
+		// be aware, that the resulting map (top_ips) is not ordered!
 		for i := 0; i < entries; i++ {
 			top_ips[ips[i]] = ip_count[ips[i]]
 		}
@@ -104,13 +108,16 @@ func print_sorted(IP_rcount map[string]int) {
 	// maps are not ordered, so we need to sort the map by the request count
 	entries := len(IP_rcount)
 	if entries > 0 {
+		// first step: get all the keys from the map into a slice, that can be sorted
 		ips := make([]string, 0, entries)
 		for ip := range IP_rcount {
 			ips = append(ips, ip)
 		}
+		// second step: sort the slice by the request count
 		sort.SliceStable(ips, func(i, j int) bool {
 			return IP_rcount[ips[i]] > IP_rcount[ips[j]]
 		})
+		// third step: iterate over the sorted slice and print the ip and the request count
 		for _, ip := range ips {
 			fmt.Println("\t", ip, "\t", IP_rcount[ip])
 		}
