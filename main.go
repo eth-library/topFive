@@ -46,15 +46,6 @@ func print_sorted(IP_rcount map[string]int) {
 	}
 }
 
-// func create_time_range() (time.Time, time.Time) {
-// 	// creates a time range to analyze the log file
-// 	// the range is defined by the time2analyze flag
-// 	endtimestring := fmt.Sprintf("%s %s:00 %s", time.Now().Format("2006-01-02"), *time2gofrom, time.Now().Local().Format("Z0700"))
-// 	endtime, _ := time.Parse("2006-01-02 15:04:05 -0700", endtimestring)
-// 	starttime := endtime.Add(time.Duration(-*time2analyze) * time.Minute)
-// 	return starttime, endtime
-// }
-
 func main() {
 	flag.Parse()
 
