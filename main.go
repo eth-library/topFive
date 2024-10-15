@@ -10,22 +10,19 @@ import (
 )
 
 // Notes
-// options:
-// -f <filename> - the name of the log file to watch
-// -l <layout> - the layout of the datetime in the log file
 // tail -F -n 1 ssl_access_atmire_log | awk '{sub(/\[/,"",$4);sub(/\]/,"",$5);print $1","$4,$5}'
-// no configs etc - simply tailored for our one specific case
-// Verallgemeinerungen später
+// simply tailored for our one specific case
+// generalizations will can be done later
 
 var (
 	_, ApplicationName = SeparateFileFromPath(os.Args[0])
-	// configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
-	config        ApplicationConfig
-	LogIt         *slog.Logger
-	time2analyze  = flag.Int("m", 5, "use -t to provide a custom time range (in minutes) to analyze (default: 5)")
-	time2gofrom   = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom time range (in minutes) to analyze (default: time.Now())")
-	log_2_analyze *Log2Analyze
-	file2parse    = flag.String("f", "/Users/sven/temp/rc-logs/prod-logs10/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /Users/sven/temp/rc-logs/prod-logs10/ssl_access_atmire_log)")
+	configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
+	config             ApplicationConfig
+	LogIt              *slog.Logger
+	time2analyze       = flag.Int("m", 0, "use -t to provide a custom time range (in minutes) to analyze instead of the whole file (default: 0)")
+	time2gofrom        = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())")
+	log_2_analyze      *Log2Analyze
+	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)")
 )
 
 func print_sorted(IP_rcount map[string]int) {
@@ -61,22 +58,27 @@ func create_time_range() (time.Time, time.Time) {
 func main() {
 	flag.Parse()
 
-	cfgpath := "conf.d/examplecfg.yml"
-	config.Initialize(&cfgpath)
+	// cfgpath := "conf.d/examplecfg.yml"
+	config.Initialize(configPath)
 	// now setup logging
 	LogIt = SetupLogging(config.Logcfg)
 	fmt.Println("LogLevel is set to " + config.Logcfg.LogLevel)
 
-	starttime, endtime := create_time_range()
 	// var log_2_analyze Log2Analyze
 	log_2_analyze = new(Log2Analyze)
-	log_2_analyze.DateLayout = "02/Jan/2006:15:04:05 Z0700"
+	// log_2_analyze.DateLayout = "02/Jan/2006:15:04:05 Z0700"
+	log_2_analyze.DateLayout = config.Layout
 	log_2_analyze.FileName = *file2parse
-	// var records Log
-	if isFlagPassed("w") {
+
+	var starttime, endtime time.Time
+
+	if *time2analyze == 0 {
 		fmt.Println("Going to parse the whole file")
 		log_2_analyze.RetrieveEntries()
+		starttime, _ = time.Parse(log_2_analyze.DateLayout, log_2_analyze.Entries[0].TimeStamp)
+		endtime, _ = time.Parse(log_2_analyze.DateLayout, log_2_analyze.Entries[len(log_2_analyze.Entries)-1].TimeStamp)
 	} else {
+		starttime, endtime := create_time_range()
 		fmt.Println("Going to parse the file from", starttime, " to ", endtime)
 		LogIt.Info("Going to parse the file from" + fmt.Sprintf("%v", starttime) + " to " + fmt.Sprintf("%v", endtime))
 		log_2_analyze.RetrieveEntries(starttime, endtime)
