@@ -114,6 +114,7 @@ func create_entry(line string) LogEntry {
 	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
 	timestamp, err := time.Parse(log_2_analyze.DateLayout, timestring)
 	if err != nil {
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
 	return LogEntry{
