@@ -71,7 +71,7 @@ func main() {
 	// }
 
 	top_ips := log_2_analyze.GetTopIPs()
-	fmt.Println("Top 5 IPs in between", starttime, " and ", endtime)
-	LogIt.Info("Top 5 IPs in between" + fmt.Sprintf("%v", starttime) + " and " + fmt.Sprintf("%v", endtime))
+	fmt.Println("Top 5 IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
+	LogIt.Info("Top 5 IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
 	print_sorted(top_ips)
 }

@@ -1,0 +1,16 @@
+topFive
+=======
+
+This is a simple program that reads a log file and returns the top five IPs with the most requests.
+
+customized for atmire logs
+
+## Usage
+
+```bash
+topFive -c <config file> -f <log file> -m <Minutes to parse> -t <timestamp to start from>
+```
+
+Note: defaults to the actual DSpace http log file and the time range 5 minutes back from now
+
+Note: takes the timestamp from the first log entry for the date

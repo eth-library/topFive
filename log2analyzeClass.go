@@ -90,7 +90,7 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 		if l.StartTime.IsZero() {
 			l.StartTime, l.EndTime = create_time_range(endtime, timerange, entry.TimeStamp)
 		}
-		if len(timestamps) == 0 || entry.Between(timestamps[0], timestamps[1]) {
+		if timerange == 0 || entry.Between(l.StartTime, l.EndTime) {
 			l.Entries = append(l.Entries, entry)
 			c++
 		}
@@ -118,12 +118,12 @@ func create_entry(line string) LogEntry {
 	}
 }
 
-func create_time_range(endtime string, timerange int, starttime time.Time) (time.Time, time.Time) {
+func create_time_range(endtimestring string, timerange int, firstTimestamp time.Time) (time.Time, time.Time) {
 	// creates a time range to analyze the log file
 	// the range is defined by the time2analyze flag
-	endtimestring := fmt.Sprintf("%s %s:00 %s", time.Now().Format("2006-01-02"), *time2gofrom, time.Now().Local().Format("Z0700"))
+	endtimestring = fmt.Sprintf("%s %s:00 %s", firstTimestamp.Format("2006-01-02"), endtimestring, time.Now().Local().Format("Z0700"))
 	endtime, _ := time.Parse("2006-01-02 15:04:05 -0700", endtimestring)
-	starttime := endtime.Add(time.Duration(-*time2analyze) * time.Minute)
+	starttime := endtime.Add(time.Duration(-timerange) * time.Minute)
 	return starttime, endtime
 }
 
