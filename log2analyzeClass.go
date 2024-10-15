@@ -77,6 +77,9 @@ func (l Log2Analyze) GetTopIPs() map[string]int {
 	// if the map is not empty, we sort the map by the request count and return the top 5 or less
 	top_ips := make(map[string]int)
 	entries := len(ip_count)
+	if entries > *topIPsCount {
+		entries = *topIPsCount
+	}
 	if entries > 0 {
 		// build a slice of the keys of the map, so we can sort it to gett the top 5
 		ips := make([]string, 0, entries)
@@ -87,9 +90,6 @@ func (l Log2Analyze) GetTopIPs() map[string]int {
 		sort.SliceStable(ips, func(i, j int) bool {
 			return ip_count[ips[i]] > ip_count[ips[j]]
 		})
-		if entries > 5 {
-			entries = 5
-		}
 		// get the top 5 or less, if there are less than 5 entries
 		// be aware, that the resulting map (top_ips) is not ordered!
 		for i := 0; i < entries; i++ {
