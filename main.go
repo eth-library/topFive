@@ -21,6 +21,7 @@ var (
 	time2analyze       = flag.Int("m", 5, "use -m to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file ")
 	endtime            = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())")
 	topIPsCount        = flag.Int("n", 5, "use -n to provide the number of top IPs to show (default: 5)")
+	IPclass            = flag.String("k", "", "use -k to summarize the IP class instead of IP addresses: A means X.255.255.255 C means X.Y.Z.255 (default to IP adresses: <empty>)")
 	log_2_analyze      *Log2Analyze
 	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)")
 )
@@ -61,8 +62,8 @@ func main() {
 	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)
 
 	top_ips := log_2_analyze.GetTopIPs()
-	fmt.Println("Top 5 IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
-	LogIt.Info("Top 5 IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
+	fmt.Println("Top IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
+	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
 	print_sorted(top_ips)
 	log_2_analyze.WriteOutputFiles(top_ips)
 }

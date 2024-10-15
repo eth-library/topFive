@@ -12,6 +12,7 @@ import (
 
 type LogEntry struct {
 	IP        string
+	Class     string
 	TimeStamp time.Time
 	Method    string
 	Request   string
@@ -69,7 +70,7 @@ func (l Log2Analyze) GetTopIPs() map[string]int {
 	// returns the five ip addresses with the highest request count within the last 5 minutes
 	ip_count := make(map[string]int)
 	for _, record := range l.Entries {
-		ip_count[record.IP]++
+		ip_count[record.Class]++
 	}
 
 	// to prevent it from crashing, when the given map ip_count, we check the length
@@ -108,8 +109,8 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int) {
 		defer file.Close()
 		file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
 		for _, record := range l.Entries {
-			if record.IP == ip {
-				file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.Method + "\t" + record.Request + "\t" + record.Code + "\n")
+			if record.Class == ip {
+				file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + record.Code + "\n")
 			}
 		}
 	}
@@ -133,8 +134,22 @@ func create_entry(line string) LogEntry {
 		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
+	// switch to get the IP class
+	var ip_class string
+	ip_parts := strings.Split(parts[0], ".")
+	switch *IPclass {
+	case "A":
+		ip_class = ip_parts[0]
+	case "B":
+		ip_class = ip_parts[0] + "." + ip_parts[1]
+	case "C":
+		ip_class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+	default:
+		ip_class = parts[0]
+	}
 	return LogEntry{
 		IP:        parts[0],
+		Class:     ip_class,
 		TimeStamp: timestamp,
 		Method:    parts[5],
 		Request:   parts[6],
