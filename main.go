@@ -58,7 +58,7 @@ func main() {
 	// var log_2_analyze Log2Analyze
 	log_2_analyze = new(Log2Analyze)
 	// log_2_analyze.DateLayout = "02/Jan/2006:15:04:05 Z0700"
-	log_2_analyze.DateLayout = config.Layout
+	log_2_analyze.DateLayout = config.DateLayout
 	log_2_analyze.FileName = *file2parse
 
 	// if *time2analyze == 0 {

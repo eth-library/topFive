@@ -12,9 +12,9 @@ import (
 // ========================
 
 type ApplicationConfig struct {
-	Layout  string    `yaml:"Layout"`
-	TempDir string    `yaml:"TempDir"`
-	Logcfg  LogConfig `yaml:"LogConfig"`
+	DateLayout string    `yaml:"DateLayout"`
+	TempDir    string    `yaml:"TempDir"`
+	Logcfg     LogConfig `yaml:"LogConfig"`
 }
 
 type LogConfig struct {
