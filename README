@@ -7,8 +7,11 @@ customized for atmire logs
 
 ## Usage
 
+`topFive -c <config file> -f <log file to analyze> -m <Minutes to parse> -t <timestamp to start from>`
+
+defaults:
 ```bash
-topFive -c <config file> -f <log file> -m <Minutes to parse> -t <timestamp to start from>
+topFive -c conf.d/examplecfg.yml -f /var/log/httpd/ssl_access_atmire_log -m 5 -t 9:55
 ```
 
 Note: defaults to the actual DSpace http log file and the time range 5 minutes back from now
