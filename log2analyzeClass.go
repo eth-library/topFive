@@ -99,6 +99,19 @@ func (l Log2Analyze) GetTopIPs() map[string]int {
 	return top_ips
 }
 
+func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int) {
+	// writes the top 5 ip addresses to a file
+	file, err := os.Create(config.OutputFolder + "top5ips.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	for ip, count := range top_ips {
+		file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
+	}
+}
+
 func (e LogEntry) Between(start, end time.Time) bool {
 	// checks if the LogEntry is between the start and end time
 	passt := e.TimeStamp.After(start) && e.TimeStamp.Before(end)

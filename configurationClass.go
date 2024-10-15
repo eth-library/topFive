@@ -12,9 +12,9 @@ import (
 // ========================
 
 type ApplicationConfig struct {
-	DateLayout string    `yaml:"DateLayout"`
-	TempDir    string    `yaml:"TempDir"`
-	Logcfg     LogConfig `yaml:"LogConfig"`
+	DateLayout   string    `yaml:"DateLayout"`
+	OutputFolder string    `yaml:"OutputFolder"`
+	Logcfg       LogConfig `yaml:"LogConfig"`
 }
 
 type LogConfig struct {
@@ -35,15 +35,30 @@ func (config *ApplicationConfig) Initialize(configPath *string) {
 	if err = yaml.Unmarshal(yamlFile, &config); err != nil {
 		log.Fatalln("ERROR parsing config", fmt.Sprint(err))
 	}
+
+	config.CheckConfig()
 }
 
 func (config *ApplicationConfig) setDefaults() {
 	*config = ApplicationConfig{
-		TempDir: "./tmp",
+		OutputFolder: "./output/",
 		Logcfg: LogConfig{
 			LogLevel:  "INFO",
-			LogFolder: "./logs",
+			LogFolder: "./logs/",
 		},
+	}
+}
+
+func (c *ApplicationConfig) CheckConfig() {
+	checknaddtrailingslash(&c.Logcfg.LogFolder)
+	// check if the log folder exists
+	if !CheckIfDir(c.Logcfg.LogFolder) {
+		ToBeCreated(c.Logcfg.LogFolder)
+	}
+	checknaddtrailingslash(&c.OutputFolder)
+	// check if the output folder exists
+	if !CheckIfDir(c.OutputFolder) {
+		ToBeCreated(c.OutputFolder)
 	}
 }
 

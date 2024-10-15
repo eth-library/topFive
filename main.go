@@ -63,4 +63,5 @@ func main() {
 	fmt.Println("Top 5 IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
 	LogIt.Info("Top 5 IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
 	print_sorted(top_ips)
+	log_2_analyze.WriteOutputFiles(top_ips)
 }

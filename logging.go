@@ -15,11 +15,7 @@ func SetupLogging(logcfg LogConfig) *slog.Logger {
 		logcfg.LogFolder = cwd + "/logs/"
 		fmt.Println("no LogFolder provided")
 	}
-	checknaddtrailingslash(&logcfg.LogFolder)
 	fmt.Println("will log to", logcfg.LogFolder)
-	if !CheckIfDir(logcfg.LogFolder) {
-		ToBeCreated(logcfg.LogFolder)
-	}
 	// check, if logfile exists (eg after crash) and move it
 	// set up regular log rotation with unix's logrotate
 	// (e.g. https://medium.com/rahasak/golang-logging-with-unix-logrotate-41ec2672b439)
