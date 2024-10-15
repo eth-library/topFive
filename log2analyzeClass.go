@@ -12,7 +12,7 @@ import (
 
 type LogEntry struct {
 	IP        string
-	TimeStamp string
+	TimeStamp time.Time
 	Method    string
 	Request   string
 	Code      string
@@ -22,15 +22,16 @@ type LogEntry struct {
 type Log2Analyze struct {
 	FileName   string
 	DateLayout string
+	StartTime  time.Time
+	EndTime    time.Time
 	Entries    []LogEntry
 }
 
 func (e LogEntry) Between(start, end time.Time) bool {
 	// checks if the LogEntry is between the start and end time
-	t, _ := time.Parse(log_2_analyze.DateLayout, e.TimeStamp)
-	passt := t.After(start) && t.Before(end)
+	passt := e.TimeStamp.After(start) && e.TimeStamp.Before(end)
 
-	LogIt.Debug(start.Format(log_2_analyze.DateLayout) + " > " + e.TimeStamp + " > " + end.Format(log_2_analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
+	// LogIt.Debug(start.Format(log_2_analyze.DateLayout) + " > " + e.TimeStamp + " > " + end.Format(log_2_analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
 	return passt
 }
 
@@ -40,11 +41,7 @@ func (l Log2Analyze) GetTopIPs() map[string]int {
 	for _, record := range l.Entries {
 		ip_count[record.IP]++
 	}
-	return get_top_ips(ip_count)
-}
 
-func get_top_ips(ip_count map[string]int) map[string]int {
-	// returns the five ip addresses with the highest request count
 	// to prevent it from crashing, when the given map ip_count, we check the length
 	// of the map and if it is empty, we return an empty map
 	// if the map is not empty, we sort the map by the request count and return the top 5 or less
@@ -72,9 +69,9 @@ func get_top_ips(ip_count map[string]int) map[string]int {
 	return top_ips
 }
 
-func (l *Log2Analyze) RetrieveEntries(timestamps ...time.Time) {
+func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	// retrieves the records from the log file within a time range or of the whole file
-	// if no timestamps are given
+	// if no timerange is given
 	file, err := os.Open(l.FileName)
 	if err != nil {
 		log.Fatal(err)
@@ -90,6 +87,9 @@ func (l *Log2Analyze) RetrieveEntries(timestamps ...time.Time) {
 		// das Folgende ist nicht universell nutzbar: Ich entferne die Anführungszeichen
 		// und ersetze sie durch Leerzeichen und splitte die Zeile dann an den Leerzeichen
 		entry := create_entry(line)
+		if l.StartTime.IsZero() {
+			l.StartTime, l.EndTime = create_time_range(endtime, timerange, entry.TimeStamp)
+		}
 		if len(timestamps) == 0 || entry.Between(timestamps[0], timestamps[1]) {
 			l.Entries = append(l.Entries, entry)
 			c++
@@ -107,7 +107,8 @@ func (l *Log2Analyze) RetrieveEntries(timestamps ...time.Time) {
 func create_entry(line string) LogEntry {
 	// creates a LogEntry from a line
 	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
-	timestamp := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
+	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
+	timestamp, _ := time.Parse(log_2_analyze.DateLayout, timestring)
 	return LogEntry{
 		IP:        parts[0],
 		TimeStamp: timestamp,
@@ -115,6 +116,15 @@ func create_entry(line string) LogEntry {
 		Request:   parts[6],
 		Code:      parts[8],
 	}
+}
+
+func create_time_range(endtime string, timerange int, starttime time.Time) (time.Time, time.Time) {
+	// creates a time range to analyze the log file
+	// the range is defined by the time2analyze flag
+	endtimestring := fmt.Sprintf("%s %s:00 %s", time.Now().Format("2006-01-02"), *time2gofrom, time.Now().Local().Format("Z0700"))
+	endtime, _ := time.Parse("2006-01-02 15:04:05 -0700", endtimestring)
+	starttime := endtime.Add(time.Duration(-*time2analyze) * time.Minute)
+	return starttime, endtime
 }
 
 func count_requests(records []LogEntry) map[string]int {
