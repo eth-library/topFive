@@ -62,6 +62,7 @@ func CheckIfDir(path string) bool {
 		if fileInfo.IsDir() {
 			return true
 		} else {
+			// TODO: catch error if it is a file and not a directory
 			return false
 		}
 	}

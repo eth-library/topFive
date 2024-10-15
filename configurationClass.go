@@ -50,6 +50,7 @@ func (config *ApplicationConfig) setDefaults() {
 }
 
 func (c *ApplicationConfig) CheckConfig() {
+	// TODO: hier muss dringend noch ein DateLayoutChack rein
 	checknaddtrailingslash(&c.Logcfg.LogFolder)
 	// check if the log folder exists
 	if !CheckIfDir(c.Logcfg.LogFolder) {
