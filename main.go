@@ -10,7 +10,6 @@ import (
 )
 
 // Notes
-// tail -F -n 1 ssl_access_atmire_log | awk '{sub(/\[/,"",$4);sub(/\]/,"",$5);print $1","$4,$5}'
 // simply tailored for our one specific case
 // generalizations will can be done later
 
@@ -49,26 +48,16 @@ func print_sorted(IP_rcount map[string]int) {
 func main() {
 	flag.Parse()
 
-	// cfgpath := "conf.d/examplecfg.yml"
 	config.Initialize(configPath)
 	// now setup logging
 	LogIt = SetupLogging(config.Logcfg)
 	fmt.Println("LogLevel is set to " + config.Logcfg.LogLevel)
 
-	// var log_2_analyze Log2Analyze
 	log_2_analyze = new(Log2Analyze)
-	// log_2_analyze.DateLayout = "02/Jan/2006:15:04:05 Z0700"
 	log_2_analyze.DateLayout = config.DateLayout
 	log_2_analyze.FileName = *file2parse
 
-	// if *time2analyze == 0 {
-	// 	fmt.Println("Going to parse the whole file")
 	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)
-	// } else {
-	// 	fmt.Println("Going to parse the file from", starttime, " to ", endtime)
-	// 	LogIt.Info("Going to parse the file from" + fmt.Sprintf("%v", starttime) + " to " + fmt.Sprintf("%v", endtime))
-	// 	log_2_analyze.RetrieveEntries(starttime, endtime)
-	// }
 
 	top_ips := log_2_analyze.GetTopIPs()
 	fmt.Println("Top 5 IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)

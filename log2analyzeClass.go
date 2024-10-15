@@ -27,12 +27,39 @@ type Log2Analyze struct {
 	Entries    []LogEntry
 }
 
-func (e LogEntry) Between(start, end time.Time) bool {
-	// checks if the LogEntry is between the start and end time
-	passt := e.TimeStamp.After(start) && e.TimeStamp.Before(end)
+func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
+	// retrieves the records from the log file within a time range or of the whole file
+	// if no timerange is given
+	file, err := os.Open(l.FileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
 
-	// LogIt.Debug(start.Format(log_2_analyze.DateLayout) + " > " + e.TimeStamp + " > " + end.Format(log_2_analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
-	return passt
+	scanner := bufio.NewScanner(file) // scan the contents of a file and print line by line
+	c := 0
+	cl := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		cl++
+		// das Folgende ist nicht universell nutzbar: Ich entferne die Anführungszeichen
+		// und ersetze sie durch Leerzeichen und splitte die Zeile dann an den Leerzeichen
+		entry := create_entry(line)
+		if l.StartTime.IsZero() {
+			l.StartTime, l.EndTime = create_time_range(endtime, timerange, entry.TimeStamp)
+		}
+		if timerange == 0 || entry.Between(l.StartTime, l.EndTime) {
+			l.Entries = append(l.Entries, entry)
+			c++
+		}
+	}
+	LogIt.Info("checked " + fmt.Sprintf("%d", cl) + " lines")
+	LogIt.Info("found Entries within timerange: " + fmt.Sprintf("%v", len(l.Entries)))
+	LogIt.Debug(" counter says: " + fmt.Sprintf("%d", c))
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error reading from file:", err) // print error if scanning is not done properly
+	}
 }
 
 func (l Log2Analyze) GetTopIPs() map[string]int {
@@ -69,39 +96,12 @@ func (l Log2Analyze) GetTopIPs() map[string]int {
 	return top_ips
 }
 
-func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
-	// retrieves the records from the log file within a time range or of the whole file
-	// if no timerange is given
-	file, err := os.Open(l.FileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
+func (e LogEntry) Between(start, end time.Time) bool {
+	// checks if the LogEntry is between the start and end time
+	passt := e.TimeStamp.After(start) && e.TimeStamp.Before(end)
 
-	scanner := bufio.NewScanner(file) // scan the contents of a file and print line by line
-	c := 0
-	cl := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		cl++
-		// das Folgende ist nicht universell nutzbar: Ich entferne die Anführungszeichen
-		// und ersetze sie durch Leerzeichen und splitte die Zeile dann an den Leerzeichen
-		entry := create_entry(line)
-		if l.StartTime.IsZero() {
-			l.StartTime, l.EndTime = create_time_range(endtime, timerange, entry.TimeStamp)
-		}
-		if timerange == 0 || entry.Between(l.StartTime, l.EndTime) {
-			l.Entries = append(l.Entries, entry)
-			c++
-		}
-	}
-	LogIt.Info("checked " + fmt.Sprintf("%d", cl) + " lines")
-	LogIt.Info("found Entries within timerange: " + fmt.Sprintf("%v", len(l.Entries)))
-	LogIt.Debug(" counter says: " + fmt.Sprintf("%d", c))
-
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading from file:", err) // print error if scanning is not done properly
-	}
+	LogIt.Debug(start.Format(log_2_analyze.DateLayout) + " > " + e.TimeStamp.Format(log_2_analyze.DateLayout) + " > " + end.Format(log_2_analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
+	return passt
 }
 
 func create_entry(line string) LogEntry {
@@ -135,33 +135,3 @@ func count_requests(records []LogEntry) map[string]int {
 	}
 	return ip_count
 }
-
-// func last5min_topreq_ips() map[string]int {
-// 	// returns the five ip addresses with the highest request count within the last 5 minutes
-// 	starttime := time.Now().Add(-5 * time.Minute)
-// 	endtime := time.Now()
-//
-// 	IP_rcount := retrieve_records(starttime, endtime)
-//
-// 	top_ips := get_top_ips(IP_rcount)
-// 	return top_ips
-// }
-//
-// func full_file_topreq_ips() map[string]int {
-// 	// returns the five ip addresses with the highest request count in the whole file
-// 	IP_rcount := retrieve_records()
-//
-// 	top_ips := get_top_ips(IP_rcount)
-// 	return top_ips
-// }
-
-// if len(timestamps) == 0 {
-// 	for _, record := range records {
-// 		ip_count[record[0]]++
-// 	}
-// 	start_time, end_time := timestamps[0], timestamps[1]
-// 	for _, record := range records {
-// 		rtime, _ := time.Parse(config.Layout, record[1])
-// 		if start_time.Before(rtime) && end_time.After(rtime) {
-// 		}
-// 	}
