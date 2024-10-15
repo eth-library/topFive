@@ -100,15 +100,18 @@ func (l Log2Analyze) GetTopIPs() map[string]int {
 }
 
 func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int) {
-	// writes the top 5 ip addresses to a file
-	file, err := os.Create(config.OutputFolder + "top5ips.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
 	for ip, count := range top_ips {
+		file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
 		file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
+		for _, record := range l.Entries {
+			if record.IP == ip {
+				file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.Method + "\t" + record.Request + "\t" + record.Code + "\n")
+			}
+		}
 	}
 }
 
