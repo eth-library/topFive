@@ -46,7 +46,10 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 		// und ersetze sie durch Leerzeichen und splitte die Zeile dann an den Leerzeichen
 		entry := create_entry(line)
 		if l.StartTime.IsZero() {
+			LogIt.Debug("l.StartTime is zero, setting Start and End Time")
 			l.StartTime, l.EndTime = create_time_range(endtime, timerange, entry.TimeStamp)
+			LogIt.Debug("Start Time: " + l.StartTime.Format(log_2_analyze.DateLayout))
+			LogIt.Debug("End Time: " + l.EndTime.Format(log_2_analyze.DateLayout))
 		}
 		if timerange == 0 || entry.Between(l.StartTime, l.EndTime) {
 			l.Entries = append(l.Entries, entry)
@@ -100,7 +103,8 @@ func (e LogEntry) Between(start, end time.Time) bool {
 	// checks if the LogEntry is between the start and end time
 	passt := e.TimeStamp.After(start) && e.TimeStamp.Before(end)
 
-	LogIt.Debug(start.Format(log_2_analyze.DateLayout) + " > " + e.TimeStamp.Format(log_2_analyze.DateLayout) + " > " + end.Format(log_2_analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
+	// the following line produces heavy debug output
+	// LogIt.Debug(start.Format(log_2_analyze.DateLayout) + " > " + e.TimeStamp.Format(log_2_analyze.DateLayout) + " > " + end.Format(log_2_analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
 	return passt
 }
 
@@ -108,7 +112,10 @@ func create_entry(line string) LogEntry {
 	// creates a LogEntry from a line
 	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
 	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
-	timestamp, _ := time.Parse(log_2_analyze.DateLayout, timestring)
+	timestamp, err := time.Parse(log_2_analyze.DateLayout, timestring)
+	if err != nil {
+		LogIt.Error("Error parsing timestamp: " + err.Error())
+	}
 	return LogEntry{
 		IP:        parts[0],
 		TimeStamp: timestamp,
@@ -121,9 +128,15 @@ func create_entry(line string) LogEntry {
 func create_time_range(endtimestring string, timerange int, firstTimestamp time.Time) (time.Time, time.Time) {
 	// creates a time range to analyze the log file
 	// the range is defined by the time2analyze flag
+	LogIt.Debug("got End Time String: " + endtimestring)
+	LogIt.Debug("got Time Range: " + fmt.Sprintf("%d", timerange))
+	LogIt.Debug("got First Timestamp: " + firstTimestamp.Format(log_2_analyze.DateLayout))
 	endtimestring = fmt.Sprintf("%s %s:00 %s", firstTimestamp.Format("2006-01-02"), endtimestring, time.Now().Local().Format("Z0700"))
+	LogIt.Debug("End Time String: " + endtimestring)
 	endtime, _ := time.Parse("2006-01-02 15:04:05 -0700", endtimestring)
+	LogIt.Debug("created End Time: " + endtime.Format(log_2_analyze.DateLayout))
 	starttime := endtime.Add(time.Duration(-timerange) * time.Minute)
+	LogIt.Debug("created Start Time( - " + fmt.Sprintf("%d", timerange) + "): " + starttime.Format(log_2_analyze.DateLayout))
 	return starttime, endtime
 }
 
