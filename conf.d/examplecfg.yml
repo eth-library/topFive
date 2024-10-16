@@ -2,5 +2,5 @@ DateLayout: "02/Jan/2006:15:04:05 -0700"
 OutputFolder: ./output
 
 LogConfig:
-  LogLevel: Info
+  LogLevel: Debug
   LogFolder: ./logs

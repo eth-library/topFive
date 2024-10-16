@@ -134,6 +134,11 @@ func create_entry(line string) LogEntry {
 		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
+	if len(parts) < 9 {
+		LogIt.Info("could not parse line: " + line)
+		LogIt.Info("got parts: " + fmt.Sprintf("%v", parts))
+		parts = append(parts, []string{"", "", "", ""}...)
+	}
 	// switch to get the IP class
 	var ip_class string
 	ip_parts := strings.Split(parts[0], ".")
