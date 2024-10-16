@@ -14,6 +14,7 @@ import (
 type ApplicationConfig struct {
 	DateLayout   string    `yaml:"DateLayout"`
 	OutputFolder string    `yaml:"OutputFolder"`
+	LogType      string    `yaml:"LogType"`
 	Logcfg       LogConfig `yaml:"LogConfig"`
 }
 

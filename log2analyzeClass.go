@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -127,39 +128,76 @@ func (e LogEntry) Between(start, end time.Time) bool {
 
 func create_entry(line string) LogEntry {
 	// creates a LogEntry from a line
-	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
-	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
-	timestamp, err := time.Parse(log_2_analyze.DateLayout, timestring)
-	if err != nil {
-		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
-		LogIt.Error("Error parsing timestamp: " + err.Error())
+	var ip, class, method, request, code, rtime string
+	var timestamp time.Time
+
+	switch config.LogType {
+	case "apache_atmire":
+		ip, class, timestamp, method, request, code, rtime = parse_apache_atmire(line)
+	case "nginx":
+		ip, class, timestamp, method, request, code, rtime = parse_nginx(line)
 	}
-	if len(parts) == 8 {
-		LogIt.Info("having difficulties to parse line: " + line)
-		LogIt.Info("got parts: " + fmt.Sprintf("%v", parts))
-		parts = append(parts, []string{"", "", "", ""}...)
-	}
-	// switch to get the IP class
-	var ip_class string
-	ip_parts := strings.Split(parts[0], ".")
-	switch *IPclass {
-	case "A":
-		ip_class = ip_parts[0]
-	case "B":
-		ip_class = ip_parts[0] + "." + ip_parts[1]
-	case "C":
-		ip_class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
-	default:
-		ip_class = parts[0]
-	}
+
 	return LogEntry{
-		IP:        parts[0],
-		Class:     ip_class,
+		IP:        ip,
+		Class:     class,
 		TimeStamp: timestamp,
-		Method:    parts[5],
-		Request:   parts[6],
-		Code:      parts[8],
+		Method:    method,
+		Request:   request,
+		Code:      code,
+		RTime:     rtime,
 	}
+}
+
+func parse_apache_atmire(line string) (string, string, time.Time, string, string, string, string) {
+	var ip, class, method, request, code, rtime string
+	var timestamp time.Time
+	var err error
+	entry_re := regexp.MustCompile(`(\d+\.\d+\.\d+\.\d+) - - \[(\d+/\w+/\d+:\d+:\d+:\d+ \+\d+)\] "(.+)" (\d{3}) .*`)
+	entry_parts := entry_re.FindStringSubmatch(line)
+	// ip_re := regexp.MustCompile(`\d+\.\d+\.\d+\.\d+`)
+	// ip = ip_re.FindString(line)
+	if len(entry_parts) < 5 {
+		LogIt.Error("Error parsing line: " + line)
+	} else {
+		ip = entry_parts[1]
+		timestring := entry_parts[2]
+		req_parts := strings.Split(entry_parts[3], " ")
+		// 408 workaround
+		if len(req_parts) == 1 {
+			LogIt.Info("found a special log-entry: " + line)
+			method = "-"
+		} else {
+			method = req_parts[0]
+			request = req_parts[1]
+		}
+		code = entry_parts[4]
+		timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+		if err != nil {
+			LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+			LogIt.Error("Error parsing timestamp: " + err.Error())
+		}
+		// switch to get the IP class
+		ip_parts := strings.Split(ip, ".")
+		switch *IPclass {
+		case "A":
+			class = ip_parts[0]
+		case "B":
+			class = ip_parts[0] + "." + ip_parts[1]
+		case "C":
+			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+		default:
+			class = ip
+		}
+	}
+	return ip, class, timestamp, method, request, code, rtime
+}
+
+func parse_nginx(line string) (string, string, time.Time, string, string, string, string) {
+	var ip, class, method, request, code, rtime string
+	var timestamp time.Time
+	LogIt.Info("parsing nginx not implemented yet")
+	return ip, class, timestamp, method, request, code, rtime
 }
 
 func create_time_range(endtimestring string, timerange int, firstTimestamp time.Time) (time.Time, time.Time) {
