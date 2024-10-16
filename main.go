@@ -61,9 +61,10 @@ func main() {
 
 	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)
 
-	top_ips := log_2_analyze.GetTopIPs()
-	fmt.Println("Top IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
+	top_ips, code_count := log_2_analyze.GetTopIPs()
+	log_2_analyze.WriteOutputFiles(top_ips, code_count)
 	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
+	fmt.Println("Top IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
+	fmt.Println("\tIP\t\tCount")
 	print_sorted(top_ips)
-	log_2_analyze.WriteOutputFiles(top_ips)
 }
