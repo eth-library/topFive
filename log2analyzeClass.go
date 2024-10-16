@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -151,44 +150,72 @@ func create_entry(line string) LogEntry {
 
 func parse_apache_atmire(line string) (string, string, time.Time, string, string, string, string) {
 	var ip, class, method, request, code, rtime string
-	var timestamp time.Time
-	var err error
-	entry_re := regexp.MustCompile(`(\d+\.\d+\.\d+\.\d+) - - \[(\d+/\w+/\d+:\d+:\d+:\d+ \+\d+)\] "(.+)" (\d{3}) .*`)
-	entry_parts := entry_re.FindStringSubmatch(line)
-	// ip_re := regexp.MustCompile(`\d+\.\d+\.\d+\.\d+`)
-	// ip = ip_re.FindString(line)
-	if len(entry_parts) < 5 {
-		LogIt.Error("Error parsing line: " + line)
-	} else {
-		ip = entry_parts[1]
-		timestring := entry_parts[2]
-		req_parts := strings.Split(entry_parts[3], " ")
-		// 408 workaround
-		if len(req_parts) == 1 {
-			LogIt.Info("found a special log-entry: " + line)
-			method = "-"
-		} else {
-			method = req_parts[0]
-			request = req_parts[1]
-		}
-		code = entry_parts[4]
-		timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
-		if err != nil {
-			LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
-			LogIt.Error("Error parsing timestamp: " + err.Error())
-		}
-		// switch to get the IP class
-		ip_parts := strings.Split(ip, ".")
-		switch *IPclass {
-		case "A":
-			class = ip_parts[0]
-		case "B":
-			class = ip_parts[0] + "." + ip_parts[1]
-		case "C":
-			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
-		default:
-			class = ip
-		}
+	// var timestamp time.Time
+	// var err error
+	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
+	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
+	timestamp, err := time.Parse(log_2_analyze.DateLayout, timestring)
+	if err != nil {
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + err.Error())
+	}
+	if len(parts) == 8 {
+		LogIt.Debug("having difficulties to parse line: " + line)
+		LogIt.Debug("got parts: " + fmt.Sprintf("%v", parts))
+		parts = append(parts, []string{"", "", "", ""}...)
+	}
+	ip = parts[0]
+	method = parts[5]
+	request = parts[6]
+	code = parts[8]
+	// switch to get the IP class
+	ip_parts := strings.Split(parts[0], ".")
+	switch *IPclass {
+	case "A":
+		class = ip_parts[0]
+	case "B":
+		class = ip_parts[0] + "." + ip_parts[1]
+	case "C":
+		class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+	default:
+		class = parts[0]
+		//  the regex parser takes way to long to parse the log file (about 15 times longer)
+		// entry_re := regexp.MustCompile(`(\d+\.\d+\.\d+\.\d+) - - \[(\d+/\w+/\d+:\d+:\d+:\d+ \+\d+)\] "(.+)" (\d{3}) .*`)
+		// entry_parts := entry_re.FindStringSubmatch(line)
+		// // ip_re := regexp.MustCompile(`\d+\.\d+\.\d+\.\d+`)
+		// // ip = ip_re.FindString(line)
+		// if len(entry_parts) < 5 {
+		// 	LogIt.Error("Error parsing line: " + line)
+		// } else {
+		// 	ip = entry_parts[1]
+		// 	timestring := entry_parts[2]
+		// 	req_parts := strings.Split(entry_parts[3], " ")
+		// 	// 408 workaround
+		// 	if len(req_parts) == 1 {
+		// 		LogIt.Debug("found a special log-entry: " + line)
+		// 		method = "-"
+		// 	} else {
+		// 		method = req_parts[0]
+		// 		request = req_parts[1]
+		// 	}
+		// 	code = entry_parts[4]
+		// 	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+		// 	if err != nil {
+		// 		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		// 		LogIt.Error("Error parsing timestamp: " + err.Error())
+		// 	}
+		// 	// switch to get the IP class
+		// 	ip_parts := strings.Split(ip, ".")
+		// 	switch *IPclass {
+		// 	case "A":
+		// 		class = ip_parts[0]
+		// 	case "B":
+		// 		class = ip_parts[0] + "." + ip_parts[1]
+		// 	case "C":
+		// 		class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+		// 	default:
+		// 		class = ip
+		// 	}
 	}
 	return ip, class, timestamp, method, request, code, rtime
 }
