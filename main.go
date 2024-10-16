@@ -48,6 +48,8 @@ func print_sorted(IP_rcount map[string]int) {
 }
 
 func main() {
+	pst := time.Now()
+
 	flag.Parse()
 
 	config.Initialize(configPath)
@@ -67,4 +69,5 @@ func main() {
 	fmt.Println("Top IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
 	fmt.Println("\tIP\t\tCount")
 	print_sorted(top_ips)
+	fmt.Printf("finished in %v\n", time.Since(pst))
 }
