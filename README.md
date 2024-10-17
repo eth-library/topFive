@@ -21,7 +21,7 @@ In emergency just call the binary `topFive`, it will run with the following defa
 - write a logfile ./logs/yyyymmdd_hhMMss.log
 - print out the top five IP adresses with the corresponding request counts
 
->[!IMPORTANT]: 
+>[!attention] IMPORTANT: 
 > Your Account musst have read rights to the logfile to analyze and access rights to the corresponding folders!
 
 ## Options
