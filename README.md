@@ -2,8 +2,8 @@ topFive
 =======
 
 This is a simple program that reads a log file and returns the top five IPs with the most requests.
-
-customized for atmire logs
+It is customized for atmire logs
+Note: It takes the timestamp from the first log entry for the date to analyze
 
 ## Usage
 In emergency just call the binary `topFive`, it will run with the following defaults:
@@ -19,11 +19,12 @@ In emergency just call the binary `topFive`, it will run with the following defa
       - xxxyy_ddd.ddd.ddd.ddd.txt
       - xxxxy_eee.eee.eee.eee.txt
       - response_codes.txt
-- write a logfile ./logs/yyyymmdd_hhMMss.log
+- write a logfile ./logs/YYYYMMDD_hhmmss.log
 - print out the top five IP adresses with the corresponding request counts
 
 > IMPORTANT: 
 > Your Account musst have read rights to the logfile to analyze and access rights to the corresponding folders!
+
 
 ## Options
 Customize the call with the following flags:
@@ -42,9 +43,10 @@ Customize the call with the following flags:
 ### change the date layout (`-d` or DateLayout in the config file)
 The data layout is specified according to the time package in go. When specifying the layout it is important to keep the date and time values: 02/Jan/2006:15:04:05 -0700
 
-example call:
+### example call:
+Call topFive with a custom config at conf.d/myConfig.yml to analyze a file ./ssl_access_atmire_log. Analyze from 9:55 back 10 minutes (time range from 9:45 till 9:55). The Datestamps within the file ./ssl_access_atmire_log will be in the format YYYY-MM-DD hh:mm:ss without a timezone:
+
 ```bash
-topFive -c conf.d/myConfig.yml -f ./ssl_access_atmire_log -m 5 -t 9:55
+topFive -c conf.d/myConfig.yml -f ./ssl_access_atmire_log -t 9:55 -m 10 -d "2006-01-02 15:04:05"
 ```
 
-Note: takes the timestamp from the first log entry for the date to analyze
