@@ -40,7 +40,7 @@ Customize the call with the following flags:
 `-t` to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
 
 ### change the date layout (`-d` or DateLayout in the config file)
-The 
+The data layout is specified according to the time package in go. When specifying the layout it is important to keep the date and time values: 02/Jan/2006:15:04:05 -0700
 
 example call:
 ```bash
