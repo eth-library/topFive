@@ -120,7 +120,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips, code_counts map[string]int) {
 			}
 		}
 	}
-	file, err := os.Create(config.OutputFolder + "return_codes.txt")
+	file, err := os.Create(config.OutputFolder + "response_codes.txt")
 	if err != nil {
 		log.Fatal(err)
 	}

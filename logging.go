@@ -9,7 +9,8 @@ import (
 )
 
 func SetupLogging(logcfg LogConfig) *slog.Logger {
-	filename := ApplicationName + ".log"
+	// filename := ApplicationName + ".log"
+	filename := time.Now().Format("20060102_150405") + ".log"
 	if logcfg.LogFolder == "" {
 		cwd, _ := os.Getwd()
 		logcfg.LogFolder = cwd + "/logs/"

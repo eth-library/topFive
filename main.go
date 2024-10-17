@@ -15,7 +15,7 @@ import (
 
 var (
 	_, ApplicationName = SeparateFileFromPath(os.Args[0])
-	configPath         = flag.String("c", "./conf.d/examplecfg.yml", "use -c to provide a custom path to the config file (default: ./conf.d/examplecfg.yml)")
+	configPath         = flag.String("c", "/etc/topFive/conf.d/topFive.yml", "use -c to provide a custom path to the config file (default: /etc/topFive/conf.d/topFive.yml)")
 	config             ApplicationConfig
 	LogIt              *slog.Logger
 	time2analyze       = flag.Int("m", 5, "use -m to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file ")
