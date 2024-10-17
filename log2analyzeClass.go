@@ -43,10 +43,12 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		cl++
-		// das Folgende ist nicht universell nutzbar: Ich entferne die Anführungszeichen
-		// und ersetze sie durch Leerzeichen und splitte die Zeile dann an den Leerzeichen
 		entry := create_entry(line)
+		// StartTime is zero, if this is the first entry
 		if l.StartTime.IsZero() {
+			// TODO: check the date layout and stopp the loop, if the date layout is not correct
+
+			// set the start and end time according to the date of the first entry
 			LogIt.Debug("l.StartTime is zero, setting Start and End Time")
 			l.StartTime, l.EndTime = create_time_range(endtime, timerange, entry.TimeStamp)
 			LogIt.Debug("Start Time: " + l.StartTime.Format(log_2_analyze.DateLayout))

@@ -8,6 +8,7 @@ customized for atmire logs
 ## Usage
 In emergency just call the binary `topFive`, it will run with the following defaults:
 - parse the logfile /var/log/httpd/ssl_access_atmire_log
+- with the date layout "02/Jan/2006:15:04:05 -0700" for the datestamps within the logfile to analyze,
 - from the actual time minus five minutes till now
 - compute the top five IP adresses with the most requests during that time range
 - write to the folder ./output
@@ -21,12 +22,13 @@ In emergency just call the binary `topFive`, it will run with the following defa
 - write a logfile ./logs/yyyymmdd_hhMMss.log
 - print out the top five IP adresses with the corresponding request counts
 
->[!attention] IMPORTANT: 
+> IMPORTANT: 
 > Your Account musst have read rights to the logfile to analyze and access rights to the corresponding folders!
 
 ## Options
 Customize the call with the following flags:
 `-c` to provide a custom path to the config file (default: /etc/topFive/conf.d/examplecfg.yml)
+`-d` to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
 `-f` to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)
 `-k` to summarize the IP class instead of IP addresses where
       A means X.255.255.255 
@@ -37,12 +39,12 @@ Customize the call with the following flags:
 `-n` to provide the number of top IPs to show (default: 5)
 `-t` to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
 
+### change the date layout (`-d` or DateLayout in the config file)
+The 
 
 example call:
 ```bash
-topFive -c conf.d/myConfig.yml -f /var/log/httpd/ssl_access_atmire_log -m 5 -t 9:55
+topFive -c conf.d/myConfig.yml -f ./ssl_access_atmire_log -m 5 -t 9:55
 ```
-
-Note: defaults to the actual DSpace http log file and the time range 5 minutes back from now
 
 Note: takes the timestamp from the first log entry for the date to analyze

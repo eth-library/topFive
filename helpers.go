@@ -15,7 +15,7 @@ import (
 // general helpers
 // ===============
 
-func isFlagPassed(name string) bool {
+func FlagIsPassed(name string) bool {
 	found := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == name {

@@ -24,6 +24,7 @@ var (
 	IPclass            = flag.String("k", "", "use -k to summarize the IP class instead of IP addresses: A means X.255.255.255 C means X.Y.Z.255 (default to IP adresses: <empty>)")
 	log_2_analyze      *Log2Analyze
 	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)")
+	date_layout        = flag.String("d", "02/Jan/2006:15:04:05 -0700", "use -d to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
 )
 
 func print_sorted(IP_rcount map[string]int) {
@@ -58,7 +59,11 @@ func main() {
 	fmt.Println("LogLevel is set to " + config.Logcfg.LogLevel)
 
 	log_2_analyze = new(Log2Analyze)
-	log_2_analyze.DateLayout = config.DateLayout
+	if FlagIsPassed("d") {
+		log_2_analyze.DateLayout = *date_layout
+	} else {
+		log_2_analyze.DateLayout = config.DateLayout
+	}
 	log_2_analyze.FileName = *file2parse
 
 	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)

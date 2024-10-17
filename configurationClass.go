@@ -26,15 +26,15 @@ type LogConfig struct {
 func (config *ApplicationConfig) Initialize(configPath *string) {
 	// 1. set defaults
 	config.setDefaults()
-	// 2. read config
+	// 2. read config and run with defaults if not found
 	file := GetCleanPath(*configPath)
 	yamlFile, err := os.ReadFile(file)
 	if err != nil {
-		log.Fatalln("critical", "No config found at "+file+", will stop now.", err)
-	}
-
-	if err = yaml.Unmarshal(yamlFile, &config); err != nil {
-		log.Fatalln("ERROR parsing config", fmt.Sprint(err))
+		fmt.Println("could not read config from " + file + ", will run with defaults.")
+	} else {
+		if err = yaml.Unmarshal(yamlFile, &config); err != nil {
+			log.Fatalln("ERROR parsing config", fmt.Sprint(err))
+		}
 	}
 
 	config.CheckConfig()
@@ -42,7 +42,9 @@ func (config *ApplicationConfig) Initialize(configPath *string) {
 
 func (config *ApplicationConfig) setDefaults() {
 	*config = ApplicationConfig{
+		DateLayout:   "02/Jan/2006:15:04:05 -0700",
 		OutputFolder: "./output/",
+		LogType:      "apache_atmire",
 		Logcfg: LogConfig{
 			LogLevel:  "INFO",
 			LogFolder: "./logs/",
