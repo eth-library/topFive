@@ -31,6 +31,7 @@ Customize the call with the following flags:
 `-c` to provide a custom path to the config file (default: /etc/topFive/conf.d/examplecfg.yml)
 `-d` to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
 `-f` to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)
+`-i` to provide an IP adress to analyze (default: <empty>)
 `-k` to summarize the IP class instead of IP addresses where
       A means X.255.255.255 
       B means X.X.255.255 

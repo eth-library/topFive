@@ -54,7 +54,7 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 			LogIt.Debug("Start Time: " + l.StartTime.Format(log_2_analyze.DateLayout))
 			LogIt.Debug("End Time: " + l.EndTime.Format(log_2_analyze.DateLayout))
 		}
-		if timerange == 0 || entry.Between(l.StartTime, l.EndTime) {
+		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) && (*ip_adress == "" || entry.IP == *ip_adress) {
 			l.Entries = append(l.Entries, entry)
 			c++
 		}
