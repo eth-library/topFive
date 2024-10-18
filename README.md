@@ -7,19 +7,21 @@ Note: It takes the timestamp from the first log entry for the date to analyze
 
 ## Usage
 In emergency just call the binary `topFive`, it will run with the following defaults:
-- parse the logfile /var/log/httpd/ssl_access_atmire_log
-- with the date layout "02/Jan/2006:15:04:05 -0700" for the datestamps within the logfile to analyze,
+- parse the logfile `/var/log/httpd/ssl_access_atmire_log`
+- with the date layout `"02/Jan/2006:15:04:05 -0700"` for the datestamps within the logfile to analyze,
 - from the actual time minus five minutes till now
 - compute the top five IP adresses with the most requests during that time range
-- write to the folder ./output
+- write to the folder `./output`
 - the following six files:
+
       - xxyyy_aaa.aaa.aaa.aaa.txt
       - xxyyy_bbb.bbb.bbb.bbb.txt
       - xxxyy_ccc.ccc.ccc.ccc.txt
       - xxxyy_ddd.ddd.ddd.ddd.txt
       - xxxxy_eee.eee.eee.eee.txt
       - response_codes.txt
-- write a logfile ./logs/YYYYMMDD_hhmmss.log
+
+- write a logfile `./logs/YYYYMMDD_hhmmss.log`
 - print out the top five IP adresses with the corresponding request counts
 
 > IMPORTANT: 
