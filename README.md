@@ -28,6 +28,7 @@ In emergency just call the binary `topFive`, it will run with the following defa
 
 ## Options
 Customize the call with the following flags:
+```
 `-c` to provide a custom path to the config file (default: /etc/topFive/conf.d/examplecfg.yml)
 `-d` to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
 `-f` to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)
@@ -40,6 +41,7 @@ Customize the call with the following flags:
 `-m` to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file 
 `-n` to provide the number of top IPs to show (default: 5)
 `-t` to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
+```
 
 ### change the date layout (`-d` or DateLayout in the config file)
 The data layout is specified according to the time package in go. When specifying the layout it is important to keep the date and time values: 02/Jan/2006:15:04:05 -0700
