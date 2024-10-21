@@ -30,6 +30,7 @@ In emergency just call the binary `topFive`, it will run with the following defa
       - xxxyy_ddd.ddd.ddd.ddd.txt
       - xxxxy_eee.eee.eee.eee.txt
       - response_codes.txt
+
     where xxyyy is the request count, followed by an underscore and the requesting IP address.
 - write a logfile `./logs/YYYYMMDD_hhmmss.log`
 - print out the top five IP adresses with the corresponding request counts
