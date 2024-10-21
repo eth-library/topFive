@@ -215,7 +215,8 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	code, err = strconv.Atoi(codestring)
 	if err != nil {
 		LogIt.Error("Error parsing code (maybe hacking?): " + codestring)
-		LogIt.Error("Error parsing code: " + err.Error())
+		LogIt.Error(line)
+		LogIt.Debug("Error parsing code: " + err.Error())
 		code = 0
 	}
 	// switch to get the IP class
