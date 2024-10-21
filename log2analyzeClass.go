@@ -190,17 +190,24 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
-	// crude workaround for short lines with return code 408
-	if len(parts) == 8 {
+	// crude workaround for short lines
+	if len(parts) < 9 {
 		LogIt.Debug("having difficulties to parse line: " + line)
+		LogIt.Debug("got " + fmt.Sprintf("%d", len(parts)) + " parts")
 		LogIt.Debug("got parts: " + fmt.Sprintf("%v", parts))
-		parts = append(parts, []string{"", "", "", ""}...)
-		parts[8] = parts[6]
+		for i := 0; i < (9 - len(parts)); i++ {
+			parts = append(parts, "")
+		}
 	}
 	ip = parts[0]
 	method = parts[5]
 	request = parts[6]
-	code = parts[8]
+	// crude workaround for lines with response code 408
+	if parts[8] == "-" {
+		code = parts[6]
+	} else {
+		code = parts[8]
+	}
 	// switch to get the IP class
 	ip_parts := strings.Split(parts[0], ".")
 	switch *IPclass {
