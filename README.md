@@ -6,6 +6,15 @@ It is customized for atmire httpd logs.
 
 Note: It takes the timestamp from the first log entry for the date to analyze
 
+## why it's useful:
+When your server get's hammered by requests you have to react quickly without spending the time with searching for the logfile and having to write complex greps to see, who's doing whta on your machine.
+
+Instead just call `topFive` and it will answer with the top five IP addresses with the most requests for the last five minutes. As a first aid you could simply block them.
+
+But there's more: for further analysis **topFive** will create an output folder and put a file for each of the top five IP addresses into it. Each file contains the request count and the requests with the timestamp, the request type, the request itself and the response code.
+
+**topFive** is a simple binary with no dependecies, uses a bare minimum of ressources when executed, so it won't stress your machine while it's under attack, and **topFive** fast. It will parse 100MB in under 400 milliseconds.
+
 ## Usage
 In emergency just call the binary `topFive`, it will run with the following defaults:
 - parse the logfile `/var/log/httpd/ssl_access_atmire_log`
@@ -21,7 +30,7 @@ In emergency just call the binary `topFive`, it will run with the following defa
       - xxxyy_ddd.ddd.ddd.ddd.txt
       - xxxxy_eee.eee.eee.eee.txt
       - response_codes.txt
-
+    where xxyyy is the request count, followed by an underscore and the requesting IP address.
 - write a logfile `./logs/YYYYMMDD_hhmmss.log`
 - print out the top five IP adresses with the corresponding request counts
 
