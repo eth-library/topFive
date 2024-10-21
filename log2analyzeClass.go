@@ -109,7 +109,7 @@ func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
 	return top_ips, code_count
 }
 
-func (l Log2Analyze) WriteOutputFiles(top_ips, code_counts map[string]int) {
+func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[int]int) {
 	for ip, count := range top_ips {
 		file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
 		if err != nil {
@@ -133,7 +133,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips, code_counts map[string]int) {
 	entries := len(code_counts)
 	if entries > 0 {
 		// first step: get all the keys from the map into a slice, that can be sorted
-		codes := make([]string, 0, entries)
+		codes := make([]int, 0, entries)
 		for code := range code_counts {
 			codes = append(codes, code)
 		}
@@ -143,7 +143,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips, code_counts map[string]int) {
 		})
 		// third step: iterate over the sorted slice and print the code and the request count
 		for _, c := range codes {
-			file.WriteString(c + "\t" + fmt.Sprintf("%d", code_counts[c]) + "\n")
+			file.WriteString(fmt.Sprintf("%d\t%d", c, code_counts[c]) + "\n")
 		}
 	}
 }
@@ -208,6 +208,7 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	// crude workaround for lines with response code 408
 	if parts[8] == "-" {
 		codestring = parts[6]
+		request = parts[5]
 	} else {
 		codestring = parts[8]
 	}
