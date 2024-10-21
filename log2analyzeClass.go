@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,7 +17,7 @@ type LogEntry struct {
 	TimeStamp time.Time
 	Method    string
 	Request   string
-	Code      string
+	Code      int
 	RTime     string
 }
 
@@ -72,10 +73,10 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	}
 }
 
-func (l Log2Analyze) GetTopIPs() (map[string]int, map[string]int) {
+func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
 	// returns the five ip addresses with the highest request count within the last 5 minutes
 	ip_count := make(map[string]int)
-	code_count := make(map[string]int)
+	code_count := make(map[int]int)
 	for _, record := range l.Entries {
 		ip_count[record.Class]++
 		code_count[record.Code]++
@@ -118,7 +119,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips, code_counts map[string]int) {
 		file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
 		for _, record := range l.Entries {
 			if record.Class == ip {
-				file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + record.Code + "\n")
+				file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
 			}
 		}
 	}
@@ -158,7 +159,8 @@ func (e LogEntry) Between(start, end time.Time) bool {
 
 func create_entry(line string) LogEntry {
 	// creates a LogEntry from a line
-	var ip, class, method, request, code, rtime string
+	var ip, class, method, request, rtime string
+	var code int
 	var timestamp time.Time
 
 	switch config.LogType {
@@ -179,13 +181,14 @@ func create_entry(line string) LogEntry {
 	}
 }
 
-func parse_apache_atmire(line string) (string, string, time.Time, string, string, string, string) {
-	var ip, class, method, request, code, rtime string
-	// var timestamp time.Time
-	// var err error
+func parse_apache_atmire(line string) (string, string, time.Time, string, string, int, string) {
+	var ip, class, method, request, codestring, rtime string
+	var code int
+	var timestamp time.Time
+	var err error
 	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
 	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
-	timestamp, err := time.Parse(log_2_analyze.DateLayout, timestring)
+	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
 	if err != nil {
 		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
@@ -204,9 +207,15 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	request = parts[6]
 	// crude workaround for lines with response code 408
 	if parts[8] == "-" {
-		code = parts[6]
+		codestring = parts[6]
 	} else {
-		code = parts[8]
+		codestring = parts[8]
+	}
+	code, err = strconv.Atoi(codestring)
+	if err != nil {
+		LogIt.Error("Error parsing code (maybe hacking?): " + codestring)
+		LogIt.Error("Error parsing code: " + err.Error())
+		code = 0
 	}
 	// switch to get the IP class
 	ip_parts := strings.Split(parts[0], ".")
@@ -223,8 +232,9 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	return ip, class, timestamp, method, request, code, rtime
 }
 
-func parse_nginx(line string) (string, string, time.Time, string, string, string, string) {
-	var ip, class, method, request, code, rtime string
+func parse_nginx(line string) (string, string, time.Time, string, string, int, string) {
+	var ip, class, method, request, rtime string
+	var code int
 	var timestamp time.Time
 	LogIt.Info("parsing nginx not implemented yet")
 	return ip, class, timestamp, method, request, code, rtime
