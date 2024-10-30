@@ -34,6 +34,8 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	// if no timerange is given
 	file, err := os.Open(l.FileName)
 	if err != nil {
+		LogIt.Debug("Error opening file: " + l.FileName)
+		fmt.Println("Error opening file: " + l.FileName)
 		log.Fatal(err)
 	}
 	defer file.Close()

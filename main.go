@@ -86,6 +86,8 @@ func main() {
 		log_2_analyze.FileName = *file2parse
 		LogIt.Info("setting FileName to " + *file2parse)
 		fmt.Println("setting FileName to " + *file2parse)
+	} else {
+		log_2_analyze.FileName = config.DefaultFile2analyze
 	}
 
 	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)
