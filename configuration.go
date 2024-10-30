@@ -12,10 +12,11 @@ import (
 // ========================
 
 type ApplicationConfig struct {
-	DateLayout   string    `yaml:"DateLayout"`
-	OutputFolder string    `yaml:"OutputFolder"`
-	LogType      string    `yaml:"LogType"`
-	Logcfg       LogConfig `yaml:"LogConfig"`
+	DateLayout          string    `yaml:"DateLayout"`
+	OutputFolder        string    `yaml:"OutputFolder"`
+	DefaultFile2analyze string    `yaml:"DefaultFile2analyze"`
+	LogType             string    `yaml:"LogType"`
+	Logcfg              LogConfig `yaml:"LogConfig"`
 }
 
 type LogConfig struct {
