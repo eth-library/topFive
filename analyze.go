@@ -168,6 +168,8 @@ func create_entry(line string) LogEntry {
 		ip, class, timestamp, method, request, code, rtime = parse_apache_atmire(line)
 	case "nginx":
 		ip, class, timestamp, method, request, code, rtime = parse_nginx(line)
+	case "rosetta":
+		ip, class, timestamp, method, request, code, rtime = parse_rosetta(line)
 	}
 
 	return LogEntry{
@@ -220,7 +222,7 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 		code = 0
 	}
 	// switch to get the IP class
-	ip_parts := strings.Split(parts[0], ".")
+	ip_parts := strings.Split(ip, ".")
 	switch *IPclass {
 	case "A":
 		class = ip_parts[0]
@@ -229,7 +231,64 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	case "C":
 		class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
 	default:
-		class = parts[0]
+		class = ip
+	}
+	return ip, class, timestamp, method, request, code, rtime
+}
+
+func parse_rosetta(line string) (string, string, time.Time, string, string, int, string) {
+	var ip, class, method, request, codestring, rtime string
+	var code int
+	var timestamp time.Time
+	var err error
+	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
+	timestring := strings.Replace(parts[4], "[", "", 1) + " " + strings.Replace(parts[5], "]", "", 1)
+	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+	if err != nil {
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + err.Error())
+	}
+	// crude workaround for short lines
+	if len(parts) < 9 {
+		LogIt.Debug("having difficulties to parse line: " + line)
+		LogIt.Debug("got " + fmt.Sprintf("%d", len(parts)) + " parts")
+		LogIt.Debug("got parts: " + fmt.Sprintf("%v", parts))
+		for i := 0; i < (9 - len(parts)); i++ {
+			parts = append(parts, "")
+		}
+	}
+	if parts[1] == "-" {
+		ip = parts[0]
+	} else {
+		ip = parts[1]
+	}
+	method = parts[6]
+	request = parts[7]
+	// crude workaround for lines with response code 408
+	if parts[9] == "-" {
+		codestring = parts[7]
+		request = parts[6]
+	} else {
+		codestring = parts[9]
+	}
+	code, err = strconv.Atoi(codestring)
+	if err != nil {
+		LogIt.Error("Error parsing code (maybe hacking?): " + codestring)
+		LogIt.Error(line)
+		LogIt.Debug("Error parsing code: " + err.Error())
+		code = 0
+	}
+	// switch to get the IP class
+	ip_parts := strings.Split(ip, ".")
+	switch *IPclass {
+	case "A":
+		class = ip_parts[0]
+	case "B":
+		class = ip_parts[0] + "." + ip_parts[1]
+	case "C":
+		class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+	default:
+		class = ip
 	}
 	return ip, class, timestamp, method, request, code, rtime
 }

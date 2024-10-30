@@ -26,6 +26,7 @@ var (
 	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)")
 	date_layout        = flag.String("d", "02/Jan/2006:15:04:05 -0700", "use -d to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
 	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze (default: <empty>)")
+	log_type           = flag.String("y", "", "use -y to provide a log type (apache_atmire | rosetta) (default: apache_atmire)")
 )
 
 func print_sorted(IP_rcount map[string]int) {
@@ -73,6 +74,11 @@ func main() {
 		LogIt.Info("setting time2analyze to 0, because an IP adress and no time2analyze is given")
 		fmt.Println("setting time2analyze to 0, because an IP adress and no time2analyze is given")
 		fmt.Println("  which means: will analyze the whole file")
+	}
+	if FlagIsPassed("y") {
+		config.LogType = *log_type
+		LogIt.Info("setting LogType to " + *log_type)
+		fmt.Println("setting LogType to " + *log_type)
 	}
 	fmt.Println("output is written to", config.OutputFolder)
 	// start working
