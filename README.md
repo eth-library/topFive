@@ -66,3 +66,15 @@ Call `topFive` with a custom config at `conf.d/myConfig.yml` to analyze the file
 topFive -c conf.d/myConfig.yml -f ./ssl_access_my.log -t 9:55 -m 10 -d "2006-01-02 15:04:05"
 ```
 
+## configuration example
+
+```yml
+DateLayout: "02/Jan/2006:15:04:05 -0700"
+OutputFolder: ./output
+LogType: apache_atmire
+DefaultLog2analyze: /var/log/httpd/ssl_access_atmire_log
+
+LogConfig:
+  LogLevel: Debug
+  LogFolder: ./logs
+```
