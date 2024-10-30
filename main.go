@@ -76,12 +76,14 @@ func main() {
 		fmt.Println("  which means: will analyze the whole file")
 	}
 	if FlagIsPassed("y") {
+		// TODO: logic bug: log_type has a default value which should be used, if no -y is passed and the config file does not contain a LogType
 		config.LogType = *log_type
 		LogIt.Info("setting LogType to " + *log_type)
 		fmt.Println("setting LogType to " + *log_type)
 	}
 	fmt.Println("output is written to", config.OutputFolder)
 	// start working
+	// TODO: provide default file name in config file
 	log_2_analyze.FileName = *file2parse
 
 	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)
