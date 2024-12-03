@@ -13,7 +13,7 @@ Instead just call `topFive` and it will answer with the top five IP addresses wi
 
 But there's more: for further analysis **topFive** will create an output folder and put a file for each of the top five IP addresses into it. Each file contains the request count and the requests with the timestamp, the request type, the request itself and the response code.
 
-**topFive** is a simple binary with no dependecies, uses a bare minimum of ressources when executed, so it won't stress your machine while it's under attack, and **topFive** fast. It will parse 100MB in under 400 milliseconds.
+**topFive** is a simple binary with no dependecies, uses a bare minimum of ressources when executed, so it won't stress your machine while it's under attack, and **topFive** is fast. It will parse 100MB in under 400 milliseconds.
 
 ## Usage
 In emergency just call the binary `topFive`, it will run with the following defaults:
