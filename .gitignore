@@ -3,3 +3,6 @@ testdata
 logs
 output
 topFive
+conf.d/topFive-cfg.yaml
+data
+dom-statt-ip.txt

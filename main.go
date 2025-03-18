@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -93,8 +94,19 @@ func main() {
 	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)
 
 	top_ips, code_count := log_2_analyze.GetTopIPs()
+	// crude, muss noch ausgearbeitet werden
+	total_requests := len(log_2_analyze.Entries)
+	var requests_per_second int
+	if *time2analyze != 0 {
+		requests_per_second = total_requests / (*time2analyze * 60)
+	} else {
+		requests_per_second = 0
+	}
+
 	log_2_analyze.WriteOutputFiles(top_ips, code_count)
 	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
+	fmt.Println("Total requests in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime, ":", strconv.Itoa(total_requests))
+	fmt.Println("Requests per second in this timespan:", strconv.Itoa(requests_per_second))
 	fmt.Println("Top IPs in between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
 	fmt.Println("\tIP\t\tCount")
 	print_sorted(top_ips)

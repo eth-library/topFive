@@ -225,14 +225,18 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	}
 	// switch to get the IP class
 	ip_parts := strings.Split(ip, ".")
-	switch *IPclass {
-	case "A":
-		class = ip_parts[0]
-	case "B":
-		class = ip_parts[0] + "." + ip_parts[1]
-	case "C":
-		class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
-	default:
+	if len(ip_parts) == 4 {
+		switch *IPclass {
+		case "A":
+			class = ip_parts[0]
+		case "B":
+			class = ip_parts[0] + "." + ip_parts[1]
+		case "C":
+			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+		default:
+			class = ip
+		}
+	} else {
 		class = ip
 	}
 	return ip, class, timestamp, method, request, code, rtime
