@@ -28,6 +28,7 @@ var (
 	date_layout        = flag.String("l", "02/Jan/2006:15:04:05 -0700", "use -l to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
 	date2analyze       = flag.String("d", time.Now().Format("2006-01-02"), "use -d to provide annother layout for the datestamps within the logfile to analyze (default: "+time.Now().Format("2006-01-02")+")")
 	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze (default: <empty>)")
+	query_string       = flag.String("q", "", "use -q to provide a string to query the logfile for (default: <empty>)")
 	log_type           = flag.String("y", "", "use -y to provide a log type (apache_atmire | rosetta | apache) (default: apache_atmire)")
 )
 
@@ -90,6 +91,12 @@ func main() {
 	LogIt.Info("setting date to analyze to " + log_2_analyze.Date2analyze)
 	fmt.Println("setting date to analyze to " + log_2_analyze.Date2analyze)
 
+	if FlagIsPassed("q") {
+		LogIt.Info("query string is set to " + *query_string)
+		fmt.Println("query string is set to " + *query_string)
+		log_2_analyze.QueryString = *query_string
+	}
+
 	fmt.Println("output is written to", config.OutputFolder)
 	// start working
 	if FlagIsPassed("f") || config.DefaultFile2analyze == "" {
@@ -113,9 +120,15 @@ func main() {
 	}
 
 	log_2_analyze.WriteOutputFiles(top_ips, code_count)
-	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
+
+	LogIt.Info("==============================================================================================")
 	fmt.Println("")
 	fmt.Println("We analyzed the time between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
+	if log_2_analyze.QueryString != "" {
+		LogIt.Info("query string to analyze was: " + log_2_analyze.QueryString)
+		fmt.Println("restricted to the query string: " + log_2_analyze.QueryString)
+	}
+	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
 	fmt.Println("==============================================================================================")
 	fmt.Println("")
 	fmt.Println("\t Total requests        :", strconv.Itoa(total_requests))

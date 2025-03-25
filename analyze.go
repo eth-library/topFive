@@ -27,6 +27,7 @@ type Log2Analyze struct {
 	StartTime    time.Time
 	EndTime      time.Time
 	Date2analyze string
+	QueryString  string
 	Entries      []LogEntry
 }
 
@@ -59,7 +60,9 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 			LogIt.Debug("End Time: " + l.EndTime.Format(log_2_analyze.DateLayout))
 		}
 		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) && (*ip_adress == "" || entry.IP == *ip_adress) {
-			l.Entries = append(l.Entries, entry)
+			if strings.Contains(entry.Request, l.QueryString) || l.QueryString == "" {
+				l.Entries = append(l.Entries, entry)
+			}
 			c++
 		}
 		// if the timerange is zero, we set the endtime to the last entry
