@@ -22,11 +22,12 @@ type LogEntry struct {
 }
 
 type Log2Analyze struct {
-	FileName   string
-	DateLayout string
-	StartTime  time.Time
-	EndTime    time.Time
-	Entries    []LogEntry
+	FileName     string
+	DateLayout   string
+	StartTime    time.Time
+	EndTime      time.Time
+	Date2analyze string
+	Entries      []LogEntry
 }
 
 func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
@@ -53,7 +54,7 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 
 			// set the start and end time according to the date of the first entry
 			LogIt.Debug("l.StartTime is zero, setting Start and End Time")
-			l.StartTime, l.EndTime = create_time_range(endtime, timerange, entry.TimeStamp)
+			l.StartTime, l.EndTime = create_time_range(endtime, timerange, l.Date2analyze)
 			LogIt.Debug("Start Time: " + l.StartTime.Format(log_2_analyze.DateLayout))
 			LogIt.Debug("End Time: " + l.EndTime.Format(log_2_analyze.DateLayout))
 		}
@@ -170,6 +171,8 @@ func create_entry(line string) LogEntry {
 		ip, class, timestamp, method, request, code, rtime = parse_apache_atmire(line)
 	case "nginx":
 		ip, class, timestamp, method, request, code, rtime = parse_nginx(line)
+	case "apache":
+		ip, class, timestamp, method, request, code, rtime = parse_apache(line)
 	case "rosetta":
 		ip, class, timestamp, method, request, code, rtime = parse_rosetta(line)
 	}
@@ -186,6 +189,63 @@ func create_entry(line string) LogEntry {
 }
 
 func parse_apache_atmire(line string) (string, string, time.Time, string, string, int, string) {
+	var ip, class, method, request, codestring, rtime string
+	var code int
+	var timestamp time.Time
+	var err error
+	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
+	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
+	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+	if err != nil {
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + err.Error())
+	}
+	// crude workaround for short lines
+	if len(parts) < 9 {
+		LogIt.Debug("having difficulties to parse line: " + line)
+		LogIt.Debug("got " + fmt.Sprintf("%d", len(parts)) + " parts")
+		LogIt.Debug("got parts: " + fmt.Sprintf("%v", parts))
+		for i := 0; i < (9 - len(parts)); i++ {
+			parts = append(parts, "")
+		}
+	}
+	ip = parts[0]
+	method = parts[5]
+	request = parts[6]
+	// crude workaround for lines with response code 408
+	if parts[8] == "-" {
+		codestring = parts[6]
+		request = parts[5]
+	} else {
+		codestring = parts[8]
+	}
+	code, err = strconv.Atoi(codestring)
+	if err != nil {
+		LogIt.Error("Error parsing code (maybe hacking?): " + codestring)
+		LogIt.Error(line)
+		LogIt.Debug("Error parsing code: " + err.Error())
+		code = 0
+	}
+	// switch to get the IP class
+	ip_parts := strings.Split(ip, ".")
+	if len(ip_parts) == 4 {
+		switch *IPclass {
+		case "A":
+			class = ip_parts[0]
+		case "B":
+			class = ip_parts[0] + "." + ip_parts[1]
+		case "C":
+			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+		default:
+			class = ip
+		}
+	} else {
+		class = ip
+	}
+	return ip, class, timestamp, method, request, code, rtime
+}
+
+func parse_apache(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, codestring, rtime string
 	var code int
 	var timestamp time.Time
@@ -307,20 +367,20 @@ func parse_nginx(line string) (string, string, time.Time, string, string, int, s
 	return ip, class, timestamp, method, request, code, rtime
 }
 
-func create_time_range(endtimestring string, timerange int, firstTimestamp time.Time) (time.Time, time.Time) {
+func create_time_range(endtimestring string, timerange int, date2analyze string) (time.Time, time.Time) {
 	// creates a time range to analyze the log file
 	// the range is defined by the time2analyze flag
+	// Will man ein anderes Datum parsen, muss man das per Schlater übergeben!
 	LogIt.Debug("got End Time String: " + endtimestring)
 	LogIt.Debug("got Time Range: " + fmt.Sprintf("%d", timerange))
-	LogIt.Debug("got First Timestamp: " + firstTimestamp.Format(log_2_analyze.DateLayout))
 	// enrich the endtimestring with the current date and timezone
-	endtimestring = fmt.Sprintf("%s %s:00 %s", firstTimestamp.Format("2006-01-02"), endtimestring, time.Now().Local().Format("Z0700"))
+	endtimestring = fmt.Sprintf("%s %s:00 %s", date2analyze, endtimestring, time.Now().Local().Format("Z0700"))
 	LogIt.Debug("End Time String: " + endtimestring)
 	// create a time object from the endtimestring
 	endtime, _ := time.Parse("2006-01-02 15:04:05 -0700", endtimestring)
 	LogIt.Debug("created End Time: " + endtime.Format(log_2_analyze.DateLayout))
 
-	starttime := firstTimestamp
+	var starttime time.Time
 	if timerange > 0 {
 		// create a starttime by subtracting the timerange from the endtime
 		starttime = endtime.Add(time.Duration(-timerange) * time.Minute)

@@ -19,15 +19,16 @@ var (
 	configPath         = flag.String("c", "/etc/topFive/conf.d/topFive.yml", "use -c to provide a custom path to the config file (default: /etc/topFive/conf.d/topFive.yml)")
 	config             ApplicationConfig
 	LogIt              *slog.Logger
-	time2analyze       = flag.Int("m", 5, "use -m to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file ")
+	timeRange          = flag.Int("m", 5, "use -m to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file ")
 	endtime            = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())")
 	topIPsCount        = flag.Int("n", 5, "use -n to provide the number of top IPs to show (default: 5)")
 	IPclass            = flag.String("k", "", "use -k to summarize the IP class instead of IP addresses: A means X.255.255.255 C means X.Y.Z.255 (default to IP adresses: <empty>)")
 	log_2_analyze      *Log2Analyze
 	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)")
-	date_layout        = flag.String("d", "02/Jan/2006:15:04:05 -0700", "use -d to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
+	date_layout        = flag.String("l", "02/Jan/2006:15:04:05 -0700", "use -l to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
+	date2analyze       = flag.String("d", time.Now().Format("2006-01-02"), "use -d to provide annother layout for the datestamps within the logfile to analyze (default: "+time.Now().Format("2006-01-02")+")")
 	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze (default: <empty>)")
-	log_type           = flag.String("y", "", "use -y to provide a log type (apache_atmire | rosetta) (default: apache_atmire)")
+	log_type           = flag.String("y", "", "use -y to provide a log type (apache_atmire | rosetta | apache) (default: apache_atmire)")
 )
 
 func print_sorted(IP_rcount map[string]int) {
@@ -63,17 +64,17 @@ func main() {
 	fmt.Println("will log to", config.Logcfg.LogFolder)
 
 	log_2_analyze = new(Log2Analyze)
-	if FlagIsPassed("d") {
+	if FlagIsPassed("l") {
 		log_2_analyze.DateLayout = *date_layout
-		LogIt.Info("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -d is passed")
-		fmt.Println("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -d is passed")
+		LogIt.Info("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -l is passed")
+		fmt.Println("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -l is passed")
 	} else {
 		log_2_analyze.DateLayout = config.DateLayout
 	}
 	if FlagIsPassed("i") && !FlagIsPassed("m") {
-		*time2analyze = 0
-		LogIt.Info("setting time2analyze to 0, because an IP adress and no time2analyze is given")
-		fmt.Println("setting time2analyze to 0, because an IP adress and no time2analyze is given")
+		*timeRange = 0
+		LogIt.Info("setting timeRange to 0, because an IP adress and no timeRange is given")
+		fmt.Println("setting timeRange to 0, because an IP adress and no timeRange is given")
 		fmt.Println("  which means: will analyze the whole file")
 	}
 	if FlagIsPassed("y") || config.LogType == "" {
@@ -81,6 +82,14 @@ func main() {
 		LogIt.Info("setting LogType to " + *log_type)
 		fmt.Println("setting LogType to " + *log_type)
 	}
+	if FlagIsPassed("d") {
+		log_2_analyze.Date2analyze = *date2analyze
+	} else {
+		log_2_analyze.Date2analyze = fmt.Sprintf(time.Now().Format("2006-01-02"))
+	}
+	LogIt.Info("setting date to analyze to " + log_2_analyze.Date2analyze)
+	fmt.Println("setting date to analyze to " + log_2_analyze.Date2analyze)
+
 	fmt.Println("output is written to", config.OutputFolder)
 	// start working
 	if FlagIsPassed("f") || config.DefaultFile2analyze == "" {
@@ -91,14 +100,14 @@ func main() {
 		log_2_analyze.FileName = config.DefaultFile2analyze
 	}
 
-	log_2_analyze.RetrieveEntries(*endtime, *time2analyze)
+	log_2_analyze.RetrieveEntries(*endtime, *timeRange)
 
 	top_ips, code_count := log_2_analyze.GetTopIPs()
 	// crude, muss noch ausgearbeitet werden
 	total_requests := len(log_2_analyze.Entries)
 	var requests_per_second int
-	if *time2analyze != 0 {
-		requests_per_second = total_requests / (*time2analyze * 60)
+	if *timeRange != 0 {
+		requests_per_second = total_requests / (*timeRange * 60)
 	} else {
 		requests_per_second = 0
 	}
