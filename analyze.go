@@ -62,8 +62,8 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) && (*ip_adress == "" || entry.IP == *ip_adress) {
 			if strings.Contains(entry.Request, l.QueryString) || l.QueryString == "" {
 				l.Entries = append(l.Entries, entry)
+				c++
 			}
-			c++
 		}
 		// if the timerange is zero, we set the endtime to the last entry
 		if timerange == 0 {

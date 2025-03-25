@@ -112,12 +112,6 @@ func main() {
 	top_ips, code_count := log_2_analyze.GetTopIPs()
 	// crude, muss noch ausgearbeitet werden
 	total_requests := len(log_2_analyze.Entries)
-	var requests_per_second int
-	if *timeRange != 0 {
-		requests_per_second = total_requests / (*timeRange * 60)
-	} else {
-		requests_per_second = 0
-	}
 
 	log_2_analyze.WriteOutputFiles(top_ips, code_count)
 
@@ -132,7 +126,12 @@ func main() {
 	fmt.Println("==============================================================================================")
 	fmt.Println("")
 	fmt.Println("\t Total requests        :", strconv.Itoa(total_requests))
-	fmt.Println("\t Requests per second   :", strconv.Itoa(requests_per_second))
+	if *timeRange != 0 {
+		fmt.Println("\t Requests per second   :", strconv.Itoa(total_requests/(*timeRange*60)))
+	} else {
+		fmt.Println("no time range given to calculate requests per second")
+	}
+
 	fmt.Println("")
 	fmt.Println("\t Top IPs               : count")
 	fmt.Println("\t -----------------------------")
