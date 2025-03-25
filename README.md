@@ -52,6 +52,7 @@ Customize the call with the following flags:
       defaults to IP adresses: X.X.X.X 
 `-m` to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file 
 `-n` to provide the number of top IPs to show (default: 5)
+`-q` to provide a query string to restrict the analysis to (default: <empty>)
 `-t` to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
 `-y` to provide a log type (apache_atmire | rosetta) (default: apache_atmire)"
 ```
