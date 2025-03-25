@@ -119,3 +119,6 @@ func CheckSum(hashAlgorithm hash.Hash, filename string) (string, error) {
 		}
 	}
 }
+
+func Sort_map_by_value_desc() {}
+func Sort_map_by_value_asc()  {}

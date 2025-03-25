@@ -93,7 +93,7 @@ func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
 	// if the map is not empty, we sort the map by the request count and return the top 5 or less
 	top_ips := make(map[string]int)
 	entries := len(ip_count)
-	if entries > *topIPsCount {
+	if entries > *topIPsCount && *topIPsCount > 0 {
 		entries = *topIPsCount
 	}
 	if entries > 0 {
@@ -116,18 +116,41 @@ func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
 }
 
 func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[int]int) {
-	for ip, count := range top_ips {
-		file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
+	// one file per IP, if a number of topIPs is requested
+	if *topIPsCount > 0 {
+		for ip, count := range top_ips {
+			file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer file.Close()
+			file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
+			for _, record := range l.Entries {
+				if record.Class == ip {
+					file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
+				}
+			}
+		}
+	} else { // if all IPs are requested (-n 0)
+		file, err := os.Create(config.OutputFolder + "ip-list.txt")
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer file.Close()
-		file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
-		for _, record := range l.Entries {
-			if record.Class == ip {
-				file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
-			}
+		// for ip, count := range top_ips {
+		// 	file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
+		// }
+		ips := make([]string, 0, len(top_ips))
+		for ip := range top_ips {
+			ips = append(ips, ip)
 		}
+		sort.SliceStable(ips, func(i, j int) bool {
+			return top_ips[ips[i]] > top_ips[ips[j]]
+		})
+		for _, ip := range ips {
+			file.WriteString(ip + "\t" + fmt.Sprintf("%v", top_ips[ip]) + "\n")
+		}
+
 	}
 	file, err := os.Create(config.OutputFolder + "response_codes.txt")
 	if err != nil {
