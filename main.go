@@ -30,6 +30,8 @@ var (
 	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze (default: <empty>)")
 	query_string       = flag.String("q", "", "use -q to provide a string to query the logfile for (default: <empty>)")
 	log_type           = flag.String("y", "", "use -y to provide a log type (apache_atmire | rosetta | apache) (default: apache_atmire)")
+	response_code      = flag.Int("r", 0, "use -r to provide a response code to filter for")
+	no_response_code   = flag.Int("nr", 0, "use -nr to provide a response code to ignore in analysis")
 )
 
 func print_sorted(IP_rcount map[string]int) {
@@ -95,6 +97,16 @@ func main() {
 		LogIt.Info("query string is set to " + *query_string)
 		fmt.Println("query string is set to " + *query_string)
 		log_2_analyze.QueryString = *query_string
+	}
+
+	if FlagIsPassed("r") {
+		LogIt.Info("response code to filter for is set to " + fmt.Sprint(*response_code))
+		fmt.Println("response code to filter for is set to " + fmt.Sprint(*response_code))
+	}
+
+	if FlagIsPassed("!r") {
+		LogIt.Info("response code to ignore is set to " + fmt.Sprint(*no_response_code))
+		fmt.Println("response code to ignore is set to " + fmt.Sprint(*no_response_code))
 	}
 
 	fmt.Println("output is written to", config.OutputFolder)

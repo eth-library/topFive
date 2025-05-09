@@ -59,7 +59,7 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 			LogIt.Debug("Start Time: " + l.StartTime.Format(log_2_analyze.DateLayout))
 			LogIt.Debug("End Time: " + l.EndTime.Format(log_2_analyze.DateLayout))
 		}
-		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) && (*ip_adress == "" || entry.IP == *ip_adress) {
+		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) && (*ip_adress == "" || entry.IP == *ip_adress) && (*response_code == 0 || entry.Code == *response_code) && (*no_response_code == 0 || entry.Code != *no_response_code) {
 			if strings.Contains(entry.Request, l.QueryString) || l.QueryString == "" {
 				l.Entries = append(l.Entries, entry)
 				c++
