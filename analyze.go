@@ -118,16 +118,34 @@ func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
 func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[int]int) {
 	// one file per IP, if a number of topIPs is requested
 	if *topIPsCount > 0 {
-		for ip, count := range top_ips {
-			file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
+		if *combined_file {
+			cfile, err := os.Create(config.OutputFolder + "combined-" + time.Now().Local().Format("20060102_150405") + ".txt")
 			if err != nil {
 				log.Fatal(err)
 			}
-			defer file.Close()
-			file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
-			for _, record := range l.Entries {
-				if record.Class == ip {
-					file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
+			defer cfile.Close()
+			for ip, count := range top_ips {
+				cfile.WriteString("\n")
+				cfile.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
+				cfile.WriteString("===========================================\n")
+				for _, record := range l.Entries {
+					if record.Class == ip {
+						cfile.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
+					}
+				}
+			}
+		} else {
+			for ip, count := range top_ips {
+				file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
+				if err != nil {
+					log.Fatal(err)
+				}
+				defer file.Close()
+				file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
+				for _, record := range l.Entries {
+					if record.Class == ip {
+						file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
+					}
 				}
 			}
 		}
@@ -137,9 +155,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 			log.Fatal(err)
 		}
 		defer file.Close()
-		// for ip, count := range top_ips {
-		// 	file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
-		// }
+		// sort IPs
 		ips := make([]string, 0, len(top_ips))
 		for ip := range top_ips {
 			ips = append(ips, ip)
@@ -152,7 +168,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 		}
 
 	}
-	file, err := os.Create(config.OutputFolder + "response_codes.txt")
+	file, err := os.Create(config.OutputFolder + "response_codes-" + time.Now().Local().Format("20060102_150405") + ".txt")
 	if err != nil {
 		log.Fatal(err)
 	}

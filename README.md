@@ -41,22 +41,23 @@ In emergency just call the binary `topFive`, it will run with the following defa
 ## Options
 Customize the call with the following flags:
 ```
-`-c` to provide a custom path to the config file (default: /etc/topFive/conf.d/examplecfg.yml)
-`-l` to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
-`-f` to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)
-`-i` to provide an IP adress to analyze (default: <empty>)
-`-k` to summarize the IP class instead of IP addresses where
-      A means X.255.255.255 
-      B means X.X.255.255 
-      C means X.X.X.255 
-      defaults to IP adresses: X.X.X.X 
-`-m` to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file 
-`-n` to provide the number of top IPs to show (default: 5)
-`-q` to provide a query string to restrict the analysis to (default: <empty>)
-`-r` to provide a response code to filter for
-`-nr` to provide a response code to ignore in analysis
-`-t` to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
-`-y` to provide a log type (apache_atmire | rosetta) (default: apache_atmire)"
+`-c`        to provide a custom path to the config file (default: /etc/topFive/conf.d/examplecfg.yml)
+`-l`        to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
+`-f`        to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)
+`-i`        to provide an IP adress to analyze (default: <empty>)
+`-k`        to summarize the IP class instead of IP addresses where
+                  A means X.255.255.255 
+                  B means X.X.255.255 
+                  C means X.X.X.255 
+                  defaults to IP adresses: X.X.X.X 
+`-m`        to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file 
+`-n`        to provide the number of top IPs to show (default: 5)
+`-q`        to provide a query string to restrict the analysis to (default: <empty>)
+`-r`        to provide a response code to filter for
+`-nr`       to provide a response code to ignore in analysis
+`-t`        to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
+`-y`        to provide a log type (apache_atmire | rosetta) (default: apache_atmire)"
+`-combined` to write all top-IPs into one file
 ```
 
 ### change the date layout (`-l` or DateLayout in the config file)

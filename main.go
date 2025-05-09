@@ -32,6 +32,7 @@ var (
 	log_type           = flag.String("y", "", "use -y to provide a log type (apache_atmire | rosetta | apache) (default: apache_atmire)")
 	response_code      = flag.Int("r", 0, "use -r to provide a response code to filter for")
 	no_response_code   = flag.Int("nr", 0, "use -nr to provide a response code to ignore in analysis")
+	combined_file      = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
 )
 
 func print_sorted(IP_rcount map[string]int) {
