@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -155,7 +156,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 				cfile.WriteString("==================================================================\n")
 				for _, record := range l.Entries {
 					if record.Class == ip {
-						cfile.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
+						cfile.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\t" + record.RTime + "\n")
 					}
 				}
 			}
@@ -169,7 +170,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 				file.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
 				for _, record := range l.Entries {
 					if record.Class == ip {
-						file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
+						file.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\t" + record.RTime + "\n")
 					}
 				}
 			}
@@ -243,7 +244,6 @@ func create_entry(line string) LogEntry {
 	case "rosetta":
 		ip, class, timestamp, method, request, code, rtime = parse_rosetta(line)
 	}
-
 	return LogEntry{
 		IP:        ip,
 		Class:     class,
@@ -293,6 +293,11 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 		LogIt.Debug("Error parsing code: " + err.Error())
 		code = 0
 	}
+	duration_regex, _ := regexp.Compile(`\*\*[0-9]+/[0-9]+\*\*`)
+	duration_string := strings.Trim(duration_regex.FindString(line), "*")
+	LogIt.Debug(duration_string)
+	duration_l := strings.Split(duration_string, "/")
+	rtime = duration_l[0] + ":" + duration_l[1]
 	// switch to get the IP class
 	ip_parts := strings.Split(ip, ".")
 	if len(ip_parts) == 4 {
