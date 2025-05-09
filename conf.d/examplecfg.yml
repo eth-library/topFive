@@ -1,6 +1,7 @@
 DateLayout: "02/Jan/2006:15:04:05 -0700"
 OutputFolder: ./output
-LogType: apache_atmire
+LogType: apache
+LogFormat: "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\""
 DefaultLog2analyze: /var/log/httpd/ssl_access_atmire_log
 
 LogConfig:

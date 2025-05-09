@@ -24,6 +24,8 @@ type LogConfig struct {
 	LogFolder string `yaml:"LogFolder"`
 }
 
+// ToDo: standardize logfile layout according to https://httpd.apache.org/docs/2.4/mod/mod_log_config.html#formats
+
 func (config *ApplicationConfig) Initialize(configPath *string) {
 	// 1. set defaults
 	config.setDefaults()
