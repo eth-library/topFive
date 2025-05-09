@@ -35,7 +35,8 @@ var (
 	combined_file      = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
 )
 
-func print_sorted(IP_rcount map[string]int) {
+func sort_by_rcount(IP_rcount map[string]int) string {
+	var output string
 	// maps are not ordered, so we need to sort the map by the request count
 	entries := len(IP_rcount)
 	if entries > 0 {
@@ -50,10 +51,10 @@ func print_sorted(IP_rcount map[string]int) {
 		})
 		// third step: iterate over the sorted slice and print the ip and the request count
 		for _, ip := range ips {
-			fmt.Println("\t", ip, "\t", IP_rcount[ip])
-			LogIt.Info("  " + fmt.Sprintf("%v", ip) + " : " + fmt.Sprintf("%v", IP_rcount[ip]))
+			output += "\t" + ip + "\t: " + fmt.Sprintf("%v", IP_rcount[ip]) + "\n"
 		}
 	}
+	return output
 }
 
 func main() {
@@ -136,16 +137,17 @@ func main() {
 	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
 	fmt.Println("==============================================================================================")
 	fmt.Println("")
-	fmt.Println("\t Total requests        :", strconv.Itoa(log_2_analyze.EntryCount))
+	fmt.Println("\tTotal requests\t\t:", strconv.Itoa(log_2_analyze.EntryCount))
 	if *timeRange != 0 {
-		fmt.Println("\t Requests per second   :", strconv.Itoa(log_2_analyze.EntryCount/(*timeRange*60)))
+		fmt.Println("\tRequests per second\t:", strconv.Itoa(log_2_analyze.EntryCount/(*timeRange*60)))
 	} else {
 		fmt.Println("no time range given to calculate requests per second")
 	}
-
+	sorted_ips := sort_by_rcount(top_ips)
 	fmt.Println("")
-	fmt.Println("\t Top IPs               : count")
-	fmt.Println("\t -----------------------------")
-	print_sorted(top_ips)
+	fmt.Println("\tTop IPs\t\t: count")
+	fmt.Println("\t------------------------------")
+	fmt.Println(sorted_ips)
+	LogIt.Info(sorted_ips)
 	fmt.Printf("finished in %v\n", time.Since(pst))
 }

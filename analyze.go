@@ -126,21 +126,29 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 				log.Fatal(err)
 			}
 			defer cfile.Close()
+			infos := make(map[string]string)
+			var timestamps []string
+			infos["Total requests"] = fmt.Sprintf("%v", l.EntryCount)
+			if *timeRange != 0 {
+				timestamps = append(timestamps, l.StartTime.Format("2006-01-02 15:04"))
+				timestamps = append(timestamps, l.EndTime.Format("2006-01-02 15:04"))
+				infos["Requests per second"] = fmt.Sprintf("%v", l.EntryCount/(*timeRange*60))
+			}
+			if l.QueryString != "" {
+				infos["query string"] = l.QueryString
+			}
+
+			header := BuildOutputHeader(l.FileName, time.Now().Local().Format("20060102_150405"), timestamps, infos)
+
+			cfile.WriteString(header)
+
+			if *topIPsCount < 31 {
+				cfile.WriteString("\n\tTop IPs\t\t: count")
+				cfile.WriteString("\n\t------------------------------\n")
+				cfile.WriteString(sort_by_rcount(top_ips))
+			}
 
 			cfile.WriteString("\n")
-			cfile.WriteString("We analyzed the time between " + log_2_analyze.StartTime.Format("2006-01-02 15:04") + " and " + log_2_analyze.EndTime.Format("2006-01-02 15:04"))
-			if log_2_analyze.QueryString != "" {
-				cfile.WriteString("restricted to the query string: " + log_2_analyze.QueryString)
-			}
-			cfile.WriteString("\n==================================================================\n")
-			cfile.WriteString("\n")
-			cfile.WriteString("\t Total requests        :" + fmt.Sprintf("%v", log_2_analyze.EntryCount))
-			if *timeRange != 0 {
-				cfile.WriteString("\n\t Requests per second   :" + fmt.Sprintf("%v", log_2_analyze.EntryCount/(*timeRange*60)))
-			} else {
-				cfile.WriteString("\nno time range given to calculate requests per second")
-			}
-			cfile.WriteString("\n\n")
 			for ip, count := range top_ips {
 				cfile.WriteString("\n")
 				cfile.WriteString(ip + "\t" + "=> " + fmt.Sprintf("%v", count) + " requests\n")
