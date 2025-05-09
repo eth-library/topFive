@@ -123,8 +123,6 @@ func main() {
 	log_2_analyze.RetrieveEntries(*endtime, *timeRange)
 
 	top_ips, code_count := log_2_analyze.GetTopIPs()
-	// crude, muss noch ausgearbeitet werden
-	total_requests := len(log_2_analyze.Entries)
 
 	log_2_analyze.WriteOutputFiles(top_ips, code_count)
 
@@ -138,9 +136,9 @@ func main() {
 	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
 	fmt.Println("==============================================================================================")
 	fmt.Println("")
-	fmt.Println("\t Total requests        :", strconv.Itoa(total_requests))
+	fmt.Println("\t Total requests        :", strconv.Itoa(log_2_analyze.EntryCount))
 	if *timeRange != 0 {
-		fmt.Println("\t Requests per second   :", strconv.Itoa(total_requests/(*timeRange*60)))
+		fmt.Println("\t Requests per second   :", strconv.Itoa(log_2_analyze.EntryCount/(*timeRange*60)))
 	} else {
 		fmt.Println("no time range given to calculate requests per second")
 	}

@@ -29,6 +29,7 @@ type Log2Analyze struct {
 	Date2analyze string
 	QueryString  string
 	Entries      []LogEntry
+	EntryCount   int
 }
 
 func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
@@ -70,8 +71,9 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 			l.EndTime = entry.TimeStamp
 		}
 	}
+	l.EntryCount = len(l.Entries)
 	LogIt.Info("checked " + fmt.Sprintf("%d", cl) + " lines")
-	LogIt.Info("found Entries within timerange: " + fmt.Sprintf("%v", len(l.Entries)))
+	LogIt.Info("found Entries within timerange: " + fmt.Sprintf("%v", l.EntryCount))
 	LogIt.Debug(" counter says: " + fmt.Sprintf("%d", c))
 
 	if err := scanner.Err(); err != nil {
@@ -124,10 +126,25 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 				log.Fatal(err)
 			}
 			defer cfile.Close()
+
+			cfile.WriteString("\n")
+			cfile.WriteString("We analyzed the time between " + log_2_analyze.StartTime.Format("2006-01-02 15:04") + " and " + log_2_analyze.EndTime.Format("2006-01-02 15:04"))
+			if log_2_analyze.QueryString != "" {
+				cfile.WriteString("restricted to the query string: " + log_2_analyze.QueryString)
+			}
+			cfile.WriteString("\n==================================================================\n")
+			cfile.WriteString("\n")
+			cfile.WriteString("\t Total requests        :" + fmt.Sprintf("%v", log_2_analyze.EntryCount))
+			if *timeRange != 0 {
+				cfile.WriteString("\n\t Requests per second   :" + fmt.Sprintf("%v", log_2_analyze.EntryCount/(*timeRange*60)))
+			} else {
+				cfile.WriteString("\nno time range given to calculate requests per second")
+			}
+			cfile.WriteString("\n\n")
 			for ip, count := range top_ips {
 				cfile.WriteString("\n")
-				cfile.WriteString(ip + "\t" + fmt.Sprintf("%v", count) + "\n")
-				cfile.WriteString("===========================================\n")
+				cfile.WriteString(ip + "\t" + "=> " + fmt.Sprintf("%v", count) + " requests\n")
+				cfile.WriteString("==================================================================\n")
 				for _, record := range l.Entries {
 					if record.Class == ip {
 						cfile.WriteString(record.TimeStamp.Format(l.DateLayout) + "\t" + record.IP + "\t" + record.Method + "\t" + record.Request + "\t" + fmt.Sprintf("%d", record.Code) + "\n")
