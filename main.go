@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"sort"
-	"strconv"
 	"time"
 )
 
@@ -24,12 +23,12 @@ var (
 	topIPsCount        = flag.Int("n", 5, "use -n to provide the number of top IPs to show (default: 5)")
 	IPclass            = flag.String("k", "", "use -k to summarize the IP class instead of IP addresses: A means X.255.255.255 C means X.Y.Z.255 (default to IP adresses: <empty>)")
 	log_2_analyze      *Log2Analyze
-	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_atmire_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_atmire_log)")
+	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_log)")
 	date_layout        = flag.String("l", "02/Jan/2006:15:04:05 -0700", "use -l to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
 	date2analyze       = flag.String("d", time.Now().Format("2006-01-02"), "use -d to provide annother layout for the datestamps within the logfile to analyze (default: "+time.Now().Format("2006-01-02")+")")
 	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze (default: <empty>)")
 	query_string       = flag.String("q", "", "use -q to provide a string to query the logfile for (default: <empty>)")
-	log_type           = flag.String("y", "", "use -y to provide a log type (apache_atmire | rosetta | apache) (default: apache_atmire)")
+	log_type           = flag.String("y", "apache", "use -y to provide a log type (apache_atmire | rosetta | apache) (default: apache)")
 	response_code      = flag.Int("r", 0, "use -r to provide a response code to filter for")
 	no_response_code   = flag.Int("nr", 0, "use -nr to provide a response code to ignore in analysis")
 	combined_file      = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
@@ -126,23 +125,22 @@ func main() {
 	top_ips, code_count := log_2_analyze.GetTopIPs()
 
 	log_2_analyze.WriteOutputFiles(top_ips, code_count)
-
-	LogIt.Info("==============================================================================================")
-	fmt.Println("")
-	fmt.Println("We analyzed the time between", log_2_analyze.StartTime, " and ", log_2_analyze.EndTime)
-	if log_2_analyze.QueryString != "" {
-		LogIt.Info("query string to analyze was: " + log_2_analyze.QueryString)
-		fmt.Println("restricted to the query string: " + log_2_analyze.QueryString)
-	}
-	LogIt.Info("Top IPs in between" + fmt.Sprintf("%v", log_2_analyze.StartTime) + " and " + fmt.Sprintf("%v", log_2_analyze.EndTime))
-	fmt.Println("==============================================================================================")
-	fmt.Println("")
-	fmt.Println("\tTotal requests\t\t:", strconv.Itoa(log_2_analyze.EntryCount))
+	// print output
+	infos := make(map[string]string)
+	var timestamps []string
+	infos["Total requests"] = fmt.Sprintf("%v", log_2_analyze.EntryCount)
 	if *timeRange != 0 {
-		fmt.Println("\tRequests per second\t:", strconv.Itoa(log_2_analyze.EntryCount/(*timeRange*60)))
-	} else {
-		fmt.Println("no time range given to calculate requests per second")
+		timestamps = append(timestamps, log_2_analyze.StartTime.Format("2006-01-02 15:04"))
+		timestamps = append(timestamps, log_2_analyze.EndTime.Format("2006-01-02 15:04"))
+		infos["Requests per second"] = fmt.Sprintf("%v", log_2_analyze.EntryCount/(*timeRange*60))
 	}
+	if log_2_analyze.QueryString != "" {
+		infos["query string"] = log_2_analyze.QueryString
+	}
+
+	header := BuildOutputHeader(log_2_analyze.FileName, time.Now().Local().Format("20060102_150405"), timestamps, infos)
+	fmt.Println(header)
+	LogIt.Info(header)
 	sorted_ips := sort_by_rcount(top_ips)
 	fmt.Println("")
 	fmt.Println("\tTop IPs\t\t: count")

@@ -45,7 +45,7 @@ func (config *ApplicationConfig) setDefaults() {
 	*config = ApplicationConfig{
 		DateLayout:   "02/Jan/2006:15:04:05 -0700",
 		OutputFolder: "./output/",
-		LogType:      "apache_atmire",
+		LogType:      "apache",
 		Logcfg: LogConfig{
 			LogLevel:  "INFO",
 			LogFolder: "./logs/",
