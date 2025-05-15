@@ -24,11 +24,12 @@ var (
 	IPclass            = flag.String("k", "", "use -k to summarize the IP class instead of IP addresses: A means X.255.255.255 C means X.Y.Z.255 (default to IP adresses: <empty>)")
 	log_2_analyze      *Log2Analyze
 	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_log", "use -f to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_log)")
-	date_layout        = flag.String("l", "02/Jan/2006:15:04:05 -0700", "use -l to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
+	date_layout        = flag.String("dl", "02/Jan/2006:15:04:05 -0700", "use -dl to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)")
 	date2analyze       = flag.String("d", time.Now().Format("2006-01-02"), "use -d to provide annother layout for the datestamps within the logfile to analyze (default: "+time.Now().Format("2006-01-02")+")")
 	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze (default: <empty>)")
 	query_string       = flag.String("q", "", "use -q to provide a string to query the logfile for (default: <empty>)")
-	log_type           = flag.String("y", "apache", "use -y to provide a log type (apache_atmire | rosetta | apache) (default: apache)")
+	log_type           = flag.String("lt", "apache", "use -lt to provide a log type (apache_atmire | rosetta | apache | logfmt) (default: apache)")
+	log_format           = flag.String("lf", "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"", "use -lf to provide a log format (according to apache log strings) (default: %h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\")")
 	response_code      = flag.Int("r", 0, "use -r to provide a response code to filter for")
 	no_response_code   = flag.Int("nr", 0, "use -nr to provide a response code to ignore in analysis")
 	combined_file      = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
@@ -68,7 +69,7 @@ func main() {
 	fmt.Println("will log to", config.Logcfg.LogFolder)
 
 	log_2_analyze = new(Log2Analyze)
-	if FlagIsPassed("l") {
+	if FlagIsPassed("dl") {
 		log_2_analyze.DateLayout = *date_layout
 		LogIt.Info("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -l is passed")
 		fmt.Println("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -l is passed")
@@ -81,11 +82,16 @@ func main() {
 		fmt.Println("setting timeRange to 0, because an IP adress and no timeRange is given")
 		fmt.Println("  which means: will analyze the whole file")
 	}
-	if FlagIsPassed("y") || config.LogType == "" {
+	if FlagIsPassed("lt") || config.LogType == "" {
 		config.LogType = *log_type
 		LogIt.Info("setting LogType to " + *log_type)
 		fmt.Println("setting LogType to " + *log_type)
 	}
+	if FlagIsPassed("l") || config.LogFormat == "" {
+        config.LogFormat = *log_format
+        LogIt.Info("setting log format to " + *log_format)
+        fmt.Println("setting log format to " + *log_format)
+    }
 	if FlagIsPassed("d") {
 		log_2_analyze.Date2analyze = *date2analyze
 	} else {

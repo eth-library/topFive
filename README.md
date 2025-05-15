@@ -42,7 +42,7 @@ In emergency just call the binary `topFive`, it will run with the following defa
 Customize the call with the following flags:
 ```
 `-c`        to provide a custom path to the config file (default: /etc/topFive/conf.d/examplecfg.yml)
-`-l`        to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
+`-dl`       to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
 `-f`        to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_log)
 `-i`        to provide an IP adress to analyze (default: <empty>)
 `-k`        to summarize the IP class instead of IP addresses where
@@ -56,18 +56,23 @@ Customize the call with the following flags:
 `-r`        to provide a response code to filter for
 `-nr`       to provide a response code to ignore in analysis
 `-t`        to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
-`-y`        to provide a log type (apache_atmire | rosetta) (default: apache_atmire)"
+`-lt`       to provide a log type (apache | apache_atmire | rosetta | logfmt) (default: apache)
+`-lf`       to provide a log format (according to apache log strings) (default: %h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\")
 `-combined` to write all top-IPs into one file
 ```
 
-### change the date layout (`-l` or DateLayout in the config file)
+**Attention:** Please keep in mind, that the custom LogType `logfmt` takes about three times of the ressources of the hardcoded versions. The hardcoded versions can parse a 1.3 GB log within seven seconds, while the same log with the same configuration via `logfmt` takes 22 seconds. This is important, if your server is under heavy load.
+
+**Note:** The LogType `logfmt` is in early alpha and doesn't respect all the apache log configuration options, nor does it respect cumstom strings.
+
+### change the date layout (`-dl` or DateLayout in the config file)
 The data layout is specified according to the time package in go. When specifying the layout it is important to keep the date and time values: 02/Jan/2006:15:04:05 -0700
 
 ## example call:
 Call `topFive` with a custom config at `conf.d/myConfig.yml` to analyze the file `./ssl_access_my.log.` Analyze **t**ill `9:55` *back* 10 minutes (time range from 9:45 **t**ill 9:55). The Datestamps within the file `./ssl_access_my.log` will be in the format `YYYY-MM-DD hh:mm:ss` without a timezone:
 
 ```bash
-topFive -c conf.d/myConfig.yml -f ./ssl_access_my.log -t 9:55 -m 10 -l "2006-01-02 15:04:05"
+topFive -c conf.d/myConfig.yml -f ./ssl_access_my.log -t 9:55 -m 10 -dl "2006-01-02 15:04:05"
 ```
 
 ## configuration example

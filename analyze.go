@@ -32,10 +32,18 @@ type Log2Analyze struct {
 	Entries      []LogEntry
 	EntryCount   int
 }
+var placeholder_lut = make(map[string]int)
 
 func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	// retrieves the records from the log file within a time range or of the whole file
 	// if no timerange is given
+
+	// create lut for the log entry's parts
+    placeholders := strings.Fields(config.LogFormat)
+    for i, placeholder := range placeholders {
+        placeholder_lut[placeholder] = i
+    }
+    
 	file, err := os.Open(l.FileName)
 	if err != nil {
 		LogIt.Debug("Error opening file: " + l.FileName)

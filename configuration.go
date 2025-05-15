@@ -16,6 +16,7 @@ type ApplicationConfig struct {
 	OutputFolder        string    `yaml:"OutputFolder"`
 	DefaultFile2analyze string    `yaml:"DefaultLog2analyze"`
 	LogType             string    `yaml:"LogType"`
+	LogFormat           string    `yaml:"LogFormat"`
 	Logcfg              LogConfig `yaml:"LogConfig"`
 }
 
@@ -48,6 +49,7 @@ func (config *ApplicationConfig) setDefaults() {
 		DateLayout:   "02/Jan/2006:15:04:05 -0700",
 		OutputFolder: "./output/",
 		LogType:      "apache",
+		LogFormat:    "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"",
 		Logcfg: LogConfig{
 			LogLevel:  "INFO",
 			LogFolder: "./logs/",
