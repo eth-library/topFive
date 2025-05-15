@@ -61,7 +61,7 @@ Customize the call with the following flags:
 `-combined` to write all top-IPs into one file
 ```
 
-**Attention:** Please keep in mind, that the custom LogType `logfmt` takes about three times of the ressources of the hardcoded versions. The hardcoded versions can parse a 1.3 GB log within seven seconds, while the same log with the same configuration via `logfmt` takes 22 seconds. This is important, if your server is under heavy load.
+**Attention:** Please keep in mind, that the custom LogType `logfmt` takes about 10 times of the ressources of the hardcoded versions. The hardcoded versions can parse a 1.3 GB log within two/three seconds, while the same log with the same configuration via `logfmt` takes 22 seconds. This is important, if your server is under heavy load.
 
 **Note:** The LogType `logfmt` is in early alpha and doesn't respect all the apache log configuration options, nor does it respect cumstom strings.
 

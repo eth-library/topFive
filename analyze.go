@@ -301,11 +301,7 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 		LogIt.Debug("Error parsing code: " + err.Error())
 		code = 0
 	}
-	duration_regex, _ := regexp.Compile(`\*\*[0-9]+/[0-9]+\*\*`)
-	duration_string := strings.Trim(duration_regex.FindString(line), "*")
-	LogIt.Debug(duration_string)
-	duration_l := strings.Split(duration_string, "/")
-	rtime = duration_l[0] + ":" + duration_l[1]
+
 	// switch to get the IP class
 	ip_parts := strings.Split(ip, ".")
 	if len(ip_parts) == 4 {
