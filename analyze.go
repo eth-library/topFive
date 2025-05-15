@@ -237,8 +237,8 @@ func create_entry(line string) LogEntry {
 	switch config.LogType {
 	case "apache_atmire":
 		ip, class, timestamp, method, request, code, rtime = parse_apache_atmire(line)
-	case "nginx":
-		ip, class, timestamp, method, request, code, rtime = parse_nginx(line)
+	case "logfmt":
+		ip, class, timestamp, method, request, code, rtime = parse_log(line)
 	case "apache":
 		ip, class, timestamp, method, request, code, rtime = parse_apache(line)
 	case "rosetta":
@@ -431,11 +431,69 @@ func parse_rosetta(line string) (string, string, time.Time, string, string, int,
 	return ip, class, timestamp, method, request, code, rtime
 }
 
-func parse_nginx(line string) (string, string, time.Time, string, string, int, string) {
+func parse_log(line string) (string, string, time.Time, string, string, int, string) {
+
 	var ip, class, method, request, rtime string
 	var code int
 	var timestamp time.Time
-	LogIt.Info("parsing nginx not implemented yet")
+	var err error
+
+	// Regulärer Ausdruck, um Felder zu erkennen, die entweder durch Leerzeichen getrennt sind
+	// oder in Anführungszeichen ("") bzw. eckigen Klammern ([]) eingeschlossen sind
+	fieldRegex := regexp.MustCompile(`"[^"]*"|\[[^\]]*\]|\S+`)
+	parts := fieldRegex.FindAllString(line, -1)
+
+	// Überprüfe, ob die Anzahl der Teile mit den Platzhaltern übereinstimmt
+	if len(parts) < len(placeholder_lut) {
+		LogIt.Error("Log line does not match the expected format: " + line)
+		LogIt.Debug(fmt.Sprintf("len parts: %d", len(parts)))
+		LogIt.Debug(fmt.Sprintf("len logformat: %d", len(placeholder_lut)))
+		return "", "", time.Time{}, "", "", 0, ""
+	}
+
+	ip = parts[placeholder_lut["%h"]]
+	timeField := parts[placeholder_lut["%t"]]
+	if len(timeField) > 2 && timeField[0] == '[' && timeField[len(timeField)-1] == ']' {
+		timeField = timeField[1 : len(timeField)-1] // Entfernt die Klammern ohne Speicherallokation
+	}
+	timestamp, err = time.Parse(log_2_analyze.DateLayout, timeField)
+	if err != nil {
+		LogIt.Error("Error parsing timestamp: " + timeField)
+	}
+	requestField := parts[placeholder_lut["\"%r\""]]
+	if len(requestField) > 2 && requestField[0] == '"' && requestField[len(requestField)-1] == '"' {
+		requestField = requestField[1 : len(requestField)-1] // Entfernt die Anführungszeichen
+	}
+	spaceIndex := strings.Index(requestField, " ")
+	if spaceIndex != -1 {
+		method = requestField[:spaceIndex]
+		request = requestField[spaceIndex+1:]
+	} else {
+		method = requestField
+		request = ""
+	}
+	code, err = strconv.Atoi(parts[placeholder_lut["%>s"]])
+	if err != nil {
+		LogIt.Error("Error parsing status code: " + parts[placeholder_lut["%>s"]])
+		code = 0
+	}
+
+	// switch to get the IP class
+	ipParts := strings.Split(ip, ".")
+	if len(ipParts) == 4 {
+		switch *IPclass {
+		case "A":
+			class = ipParts[0]
+		case "B":
+			class = ipParts[0] + "." + ipParts[1]
+		case "C":
+			class = ipParts[0] + "." + ipParts[1] + "." + ipParts[2]
+		default:
+			class = ip
+		}
+	} else {
+		class = ip
+	}
 	return ip, class, timestamp, method, request, code, rtime
 }
 
