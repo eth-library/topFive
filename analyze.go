@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,18 +33,36 @@ type Log2Analyze struct {
 	Entries      []LogEntry
 	EntryCount   int
 }
+
 var placeholder_lut = make(map[string]int)
+
+func fill_placeholder_lut() {
+	// create lut for the log entry's parts
+	// doesn't work for user agent strings, as we cannot foresee the length
+	placeholders := strings.Fields(config.LogFormat)
+
+	tspos := slices.Index(placeholders, "%t")
+	rpos := slices.Index(placeholders, "%r")
+	if tspos != -1 {
+		placeholders = slices.Replace(placeholders, tspos, tspos+1, "ts1")
+		placeholders = slices.Insert(placeholders, tspos, "ts2")
+	}
+	if rpos != -1 {
+		placeholders = slices.Replace(placeholders, rpos, rpos+1, "m")
+		placeholders = slices.Insert(placeholders, rpos, "r", "p")
+	}
+
+	for i, placeholder := range placeholders {
+		placeholder_lut[placeholder] = i
+	}
+}
 
 func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	// retrieves the records from the log file within a time range or of the whole file
 	// if no timerange is given
 
-	// create lut for the log entry's parts
-    placeholders := strings.Fields(config.LogFormat)
-    for i, placeholder := range placeholders {
-        placeholder_lut[placeholder] = i
-    }
-    
+	fill_placeholder_lut()
+
 	file, err := os.Open(l.FileName)
 	if err != nil {
 		LogIt.Debug("Error opening file: " + l.FileName)
@@ -436,7 +455,6 @@ func parse_rosetta(line string) (string, string, time.Time, string, string, int,
 }
 
 func parse_log(line string) (string, string, time.Time, string, string, int, string) {
-
 	var ip, class, method, request, rtime string
 	var code int
 	var timestamp time.Time
