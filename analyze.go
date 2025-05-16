@@ -39,18 +39,19 @@ func fill_placeholder_lut() {
 	// create lut for the log entry's parts
 	// doesn't work for user agent strings, as we cannot foresee the length
 	placeholders := strings.Fields(config.LogFormat)
+	LogIt.Debug("found the following placeholders: " + strings.Join(placeholders[:], ","))
 
 	tspos := slices.Index(placeholders, "%t")
-	rpos := slices.Index(placeholders, "%r")
 	if tspos != -1 {
-		placeholders = slices.Replace(placeholders, tspos, tspos+1, "ts1")
-		placeholders = slices.Insert(placeholders, tspos, "ts2")
+		placeholders = slices.Insert(placeholders, tspos+1 , "ts2")
+		placeholders = slices.Replace(placeholders, tspos, tspos +1 , "ts1")
 	}
+	rpos := slices.Index(placeholders, "%r")
 	if rpos != -1 {
-		placeholders = slices.Replace(placeholders, rpos, rpos+1, "m")
-		placeholders = slices.Insert(placeholders, rpos, "r", "p")
+		placeholders = slices.Insert(placeholders, rpos+1, "r", "p")
+		placeholders = slices.Replace(placeholders, rpos, rpos +1, "m")
 	}
-
+	LogIt.Debug("will create lut with the placeholders: " + strings.Join(placeholders[:], ","))
 	for i, placeholder := range placeholders {
 		placeholder_lut[placeholder] = i
 	}
