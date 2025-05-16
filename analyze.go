@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -460,40 +459,26 @@ func parse_log(line string) (string, string, time.Time, string, string, int, str
 	var timestamp time.Time
 	var err error
 
-	// Regulärer Ausdruck, um Felder zu erkennen, die entweder durch Leerzeichen getrennt sind
-	// oder in Anführungszeichen ("") bzw. eckigen Klammern ([]) eingeschlossen sind
-	fieldRegex := regexp.MustCompile(`"[^"]*"|\[[^\]]*\]|\S+`)
-	parts := fieldRegex.FindAllString(line, -1)
-
-	// Überprüfe, ob die Anzahl der Teile mit den Platzhaltern übereinstimmt
-	if len(parts) < len(placeholder_lut) {
-		LogIt.Error("Log line does not match the expected format: " + line)
-		LogIt.Debug(fmt.Sprintf("len parts: %d", len(parts)))
-		LogIt.Debug(fmt.Sprintf("len logformat: %d", len(placeholder_lut)))
-		return "", "", time.Time{}, "", "", 0, ""
+	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
+	timestring := strings.Replace(parts[placeholder_lut["ts1"]], "[", "", 1) + " " + strings.Replace(parts[placeholder_lut["ts2"]], "]", "", 1)
+	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+	if err != nil {
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + err.Error())
+	}
+	// crude workaround for short lines
+	if len(parts) < 9 {
+		LogIt.Debug("having difficulties to parse line: " + line)
+		LogIt.Debug("got " + fmt.Sprintf("%d", len(parts)) + " parts")
+		LogIt.Debug("got parts: " + fmt.Sprintf("%v", parts))
+		for i := 0; i < (9 - len(parts)); i++ {
+			parts = append(parts, "")
+		}
 	}
 
 	ip = parts[placeholder_lut["%h"]]
-	timeField := parts[placeholder_lut["%t"]]
-	if len(timeField) > 2 && timeField[0] == '[' && timeField[len(timeField)-1] == ']' {
-		timeField = timeField[1 : len(timeField)-1] // Entfernt die Klammern ohne Speicherallokation
-	}
-	timestamp, err = time.Parse(log_2_analyze.DateLayout, timeField)
-	if err != nil {
-		LogIt.Error("Error parsing timestamp: " + timeField)
-	}
-	requestField := parts[placeholder_lut["\"%r\""]]
-	if len(requestField) > 2 && requestField[0] == '"' && requestField[len(requestField)-1] == '"' {
-		requestField = requestField[1 : len(requestField)-1] // Entfernt die Anführungszeichen
-	}
-	spaceIndex := strings.Index(requestField, " ")
-	if spaceIndex != -1 {
-		method = requestField[:spaceIndex]
-		request = requestField[spaceIndex+1:]
-	} else {
-		method = requestField
-		request = ""
-	}
+	method = parts[placeholder_lut["m"]]
+	request = parts[placeholder_lut["r"]]
 	code, err = strconv.Atoi(parts[placeholder_lut["%>s"]])
 	if err != nil {
 		LogIt.Error("Error parsing status code: " + parts[placeholder_lut["%>s"]])
