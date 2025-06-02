@@ -43,13 +43,13 @@ func fill_placeholder_lut() {
 
 	tspos := slices.Index(placeholders, "%t")
 	if tspos != -1 {
-		placeholders = slices.Insert(placeholders, tspos+1 , "ts2")
-		placeholders = slices.Replace(placeholders, tspos, tspos +1 , "ts1")
+		placeholders = slices.Insert(placeholders, tspos+1, "ts2")
+		placeholders = slices.Replace(placeholders, tspos, tspos+1, "ts1")
 	}
 	rpos := slices.Index(placeholders, "%r")
 	if rpos != -1 {
 		placeholders = slices.Insert(placeholders, rpos+1, "r", "p")
-		placeholders = slices.Replace(placeholders, rpos, rpos +1, "m")
+		placeholders = slices.Replace(placeholders, rpos, rpos+1, "m")
 	}
 	LogIt.Debug("will create lut with the placeholders: " + strings.Join(placeholders[:], ","))
 	for i, placeholder := range placeholders {
@@ -331,6 +331,8 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 			class = ip_parts[0] + "." + ip_parts[1]
 		case "C":
 			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+		case "D":
+			class = ip
 		default:
 			class = ip
 		}
@@ -388,6 +390,8 @@ func parse_apache(line string) (string, string, time.Time, string, string, int, 
 			class = ip_parts[0] + "." + ip_parts[1]
 		case "C":
 			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+		case "D":
+			class = ip
 		default:
 			class = ip
 		}
@@ -448,6 +452,8 @@ func parse_rosetta(line string) (string, string, time.Time, string, string, int,
 		class = ip_parts[0] + "." + ip_parts[1]
 	case "C":
 		class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+	case "D":
+		class = ip
 	default:
 		class = ip
 	}
@@ -496,6 +502,8 @@ func parse_log(line string) (string, string, time.Time, string, string, int, str
 			class = ipParts[0] + "." + ipParts[1]
 		case "C":
 			class = ipParts[0] + "." + ipParts[1] + "." + ipParts[2]
+		case "D":
+			class = ip
 		default:
 			class = ip
 		}
