@@ -88,7 +88,18 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 			LogIt.Debug("Start Time: " + l.StartTime.Format(log_2_analyze.DateLayout))
 			LogIt.Debug("End Time: " + l.EndTime.Format(log_2_analyze.DateLayout))
 		}
-		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) && (*ip_adress == "" || entry.IP == *ip_adress) && (*not_ip == "" || entry.IP[0:len(*not_ip)] != *not_ip) && (*response_code == 0 || entry.Code == *response_code) && (*no_response_code == 0 || entry.Code != *no_response_code) {
+		// check to avoid crash
+		entry_ip := ""
+		if len(entry.IP) < len(*not_ip) {
+			entry_ip = entry.IP
+		} else {
+			entry_ip = entry.IP[0:len(*not_ip)]
+		}
+		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) &&
+			(*ip_adress == "" || entry.IP == *ip_adress) &&
+			(*not_ip == "" || entry_ip != *not_ip) &&
+			(*response_code == 0 || entry.Code == *response_code) &&
+			(*no_response_code == 0 || entry.Code != *no_response_code) {
 			if strings.Contains(entry.Request, l.QueryString) || l.QueryString == "" {
 				l.Entries = append(l.Entries, entry)
 				c++
