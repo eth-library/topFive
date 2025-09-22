@@ -45,6 +45,7 @@ Customize the call with the following flags:
 `-dl`       to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
 `-f`        to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_log)
 `-i`        to provide an IP adress to analyze (default: <empty>)
+`-ni`       to provide an IP adress or IPs starting with... to ignore in analysis
 `-k`        to summarize the IP class instead of IP addresses where
                   A means X.255.255.255 
                   B means X.X.255.255 
@@ -69,10 +70,10 @@ Customize the call with the following flags:
 The data layout is specified according to the time package in go. When specifying the layout it is important to keep the date and time values: 02/Jan/2006:15:04:05 -0700
 
 ## example call:
-Call `topFive` with a custom config at `conf.d/myConfig.yml` to analyze the file `./ssl_access_my.log.` Analyze **t**ill `9:55` *back* 10 minutes (time range from 9:45 **t**ill 9:55). The Datestamps within the file `./ssl_access_my.log` will be in the format `YYYY-MM-DD hh:mm:ss` without a timezone:
+Call `topFive` with a custom config at `conf.d/myConfig.yml` to analyze the file `./ssl_access_my.log.` Analyze **t**ill `9:55` *back* 10 minutes (time range from 9:45 **t**ill 9:55). Ignore IPs starting with 192.168.1. The Datestamps within the file `./ssl_access_my.log` will be in the format `YYYY-MM-DD hh:mm:ss` without a timezone:
 
 ```bash
-topFive -c conf.d/myConfig.yml -f ./ssl_access_my.log -t 9:55 -m 10 -dl "2006-01-02 15:04:05"
+topFive -c conf.d/myConfig.yml -f ./ssl_access_my.log -t 9:55 -m 10 -ni 192.168.1. -dl "2006-01-02 15:04:05"
 ```
 
 ## configuration example

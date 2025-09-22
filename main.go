@@ -27,7 +27,7 @@ var (
 	date_layout        = flag.String("dl", "02/Jan/2006:15:04:05 -0700", "use -dl to provide annother layout for the datestamps within the logfile to analyze")
 	date2analyze       = flag.String("d", time.Now().Format("2006-01-02"), "use -d to provide the date to analyze")
 	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze")
-	not_ip             = flag.String("ni", "", "use -ni to provide an IP adress to ignore in analyzis")
+	not_ip             = flag.String("ni", "", "use -ni to provide an IP adress to ignore in analysis")
 	query_string       = flag.String("q", "", "use -q to provide a string to query the logfile for")
 	log_type           = flag.String("lt", "apache", "use -lt to provide a log type (apache_atmire | rosetta | apache | logfmt)")
 	log_format         = flag.String("lf", "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"", "use -lf to provide a log format (according to apache log strings)")
