@@ -2,9 +2,10 @@ topFive
 =======
 
 This is a simple program that reads a log file and returns the top five IPs with the most requests.
-It is customized for atmire httpd logs.
 
 Note: It takes the timestamp from the first log entry for the date to analyze
+
+Also note: Actually there is no Windows-Version!
 
 ## why it's useful:
 When your server get's hammered by requests you have to react quickly without spending the time with searching for the logfile and having to write complex greps to see, who's doing whta on your machine.
