@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// LogEntry represents a single parsed line from a web server log file.
 type LogEntry struct {
 	IP        string
 	Class     string
@@ -22,6 +23,8 @@ type LogEntry struct {
 	RTime     string
 }
 
+// Log2Analyze holds the state for a log analysis session, including the parsed
+// entries, time window, and metadata about the file being analysed.
 type Log2Analyze struct {
 	FileName     string
 	DateLayout   string
@@ -35,6 +38,8 @@ type Log2Analyze struct {
 
 var placeholder_lut = make(map[string]int)
 
+// fill_placeholder_lut builds a lookup table mapping log format placeholders
+// (e.g. %h, %t, %r) to their positional index in a split log line.
 func fill_placeholder_lut() {
 	// create lut for the log entry's parts
 	// doesn't work for user agent strings, as we cannot foresee the length
@@ -57,10 +62,10 @@ func fill_placeholder_lut() {
 	}
 }
 
+// RetrieveEntries reads the log file and populates l.Entries with all log
+// entries that match the current filter criteria (time range, IP, response code,
+// query string). If timerange is 0 the entire file is scanned.
 func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
-	// retrieves the records from the log file within a time range or of the whole file
-	// if no timerange is given
-
 	fill_placeholder_lut()
 
 	file, err := os.Open(l.FileName)
@@ -126,8 +131,9 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	}
 }
 
+// GetTopIPs returns the top N IP classes by request count along with a map of
+// HTTP status code frequencies. N is controlled by the -n flag (topIPsCount).
 func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
-	// returns the five ip addresses with the highest request count within the last 5 minutes
 	ip_count := make(map[string]int)
 	code_count := make(map[int]int)
 	for _, record := range l.Entries {
@@ -162,6 +168,9 @@ func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
 	return top_ips, code_count
 }
 
+// WriteOutputFiles writes the analysis results to the configured output folder.
+// Depending on the -combined flag it writes either one file per top IP or a
+// single combined file. A response-code summary file is always written.
 func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[int]int) {
 	// one file per IP, if a number of topIPs is requested
 	if *topIPsCount > 0 {
@@ -263,6 +272,8 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 	}
 }
 
+// Between reports whether e.TimeStamp falls strictly between start and end
+// (exclusive on both boundaries).
 func (e LogEntry) Between(start, end time.Time) bool {
 	// checks if the LogEntry is between the start and end time
 	passt := e.TimeStamp.After(start) && e.TimeStamp.Before(end)
@@ -272,6 +283,8 @@ func (e LogEntry) Between(start, end time.Time) bool {
 	return passt
 }
 
+// create_entry dispatches to the appropriate parser based on config.LogType
+// and returns the resulting LogEntry.
 func create_entry(line string) LogEntry {
 	// creates a LogEntry from a line
 	var ip, class, method, request, rtime string
@@ -299,6 +312,7 @@ func create_entry(line string) LogEntry {
 	}
 }
 
+// parse_apache_atmire parses a log line in the Apache/Atmire combined format.
 func parse_apache_atmire(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, codestring, rtime string
 	var code int
@@ -359,6 +373,7 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	return ip, class, timestamp, method, request, code, rtime
 }
 
+// parse_apache parses a log line in the standard Apache combined log format.
 func parse_apache(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, codestring, rtime string
 	var code int
@@ -418,6 +433,7 @@ func parse_apache(line string) (string, string, time.Time, string, string, int, 
 	return ip, class, timestamp, method, request, code, rtime
 }
 
+// parse_rosetta parses a log line in the Rosetta format (extra hostname field before the IP).
 func parse_rosetta(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, codestring, rtime string
 	var code int
@@ -477,6 +493,8 @@ func parse_rosetta(line string) (string, string, time.Time, string, string, int,
 	return ip, class, timestamp, method, request, code, rtime
 }
 
+// parse_log parses a log line using the placeholder lookup table (logfmt-style),
+// mapping field positions from the configured log format.
 func parse_log(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, rtime string
 	var code int
@@ -530,6 +548,9 @@ func parse_log(line string) (string, string, time.Time, string, string, int, str
 	return ip, class, timestamp, method, request, code, rtime
 }
 
+// create_time_range builds a start/end time window. The window ends at
+// endtimestring on date2analyze and spans timerange minutes backwards.
+// If timerange is 0 the start time is the zero value.
 func create_time_range(endtimestring string, timerange int, date2analyze string) (time.Time, time.Time) {
 	// creates a time range to analyze the log file
 	// the range is defined by the time2analyze flag

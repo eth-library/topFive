@@ -1,3 +1,6 @@
+// Package main implements topFive, a CLI tool that analyses web server log files
+// (Apache, Rosetta, logfmt) and reports the top N IP addresses by request count
+// within a configurable time window.
 package main
 
 import (
@@ -9,10 +12,7 @@ import (
 	"time"
 )
 
-// Notes
-// simply tailored for our one specific case
-// generalizations will can be done later
-
+// Command-line flags and global state used throughout the application.
 var (
 	_, ApplicationName = SeparateFileFromPath(os.Args[0])
 	configPath         = flag.String("c", "/etc/topFive/conf.d/topFive.yml", "use -c to provide a custom path to the config file")
@@ -36,6 +36,8 @@ var (
 	combined_file      = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
 )
 
+// sort_by_rcount returns a formatted string listing the entries of IP_rcount
+// sorted in descending order by request count.
 func sort_by_rcount(IP_rcount map[string]int) string {
 	var output string
 	// maps are not ordered, so we need to sort the map by the request count
@@ -100,7 +102,7 @@ func main() {
 	if FlagIsPassed("d") {
 		log_2_analyze.Date2analyze = *date2analyze
 	} else {
-		log_2_analyze.Date2analyze = fmt.Sprintf(time.Now().Format("2006-01-02"))
+		log_2_analyze.Date2analyze = time.Now().Format("2006-01-02")
 	}
 	LogIt.Info("setting date to analyze to " + log_2_analyze.Date2analyze)
 	fmt.Println("setting date to analyze to " + log_2_analyze.Date2analyze)

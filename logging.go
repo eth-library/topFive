@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// SetupLogging creates a structured logger (slog) that writes to a timestamped
+// log file inside logcfg.LogFolder. If the log file already exists it is renamed
+// before a new one is created. The log level is set according to logcfg.LogLevel.
 func SetupLogging(logcfg LogConfig) *slog.Logger {
 	// filename := ApplicationName + ".log"
 	filename := ApplicationName + "_" + time.Now().Format("20060102_150405") + ".log"

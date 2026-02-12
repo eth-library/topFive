@@ -12,10 +12,8 @@ import (
 	"strings"
 )
 
-// ===============
-// general helpers
-// ===============
-
+// FlagIsPassed reports whether the flag with the given name was explicitly set
+// on the command line. It inspects the default flag.CommandLine.
 func FlagIsPassed(name string) bool {
 	found := false
 	flag.Visit(func(f *flag.Flag) {
@@ -26,10 +24,12 @@ func FlagIsPassed(name string) bool {
 	return found
 }
 
+// StringInSlice reports whether name is present in sl.
 func StringInSlice(name string, sl []string) bool {
 	return slices.Contains(sl, name)
 }
 
+// GetStringSliceElementIndex returns the index of value in slice, or -1 if not found.
 func GetStringSliceElementIndex(slice []string, value string) int {
 	for i, v := range slice {
 		if v == value {
@@ -39,16 +39,19 @@ func GetStringSliceElementIndex(slice []string, value string) int {
 	return -1
 }
 
+// GetCleanPath returns the cleaned version of path using filepath.Clean.
 func GetCleanPath(path string) string {
 	return filepath.Clean(path)
 }
 
+// checknaddtrailingslash appends a trailing "/" to *path if one is not already present.
 func checknaddtrailingslash(path *string) {
 	if !strings.HasSuffix(*path, "/") {
 		*path = *path + "/"
 	}
 }
 
+// CheckIfDir reports whether path exists and is a directory.
 func CheckIfDir(path string) bool {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -64,6 +67,7 @@ func CheckIfDir(path string) bool {
 	}
 }
 
+// ToBeCreated prompts the user interactively to create the missing directory at path.
 func ToBeCreated(path string) {
 	fmt.Println("the folder " + path + " is missing")
 	var anlegen string
@@ -82,6 +86,7 @@ func ToBeCreated(path string) {
 	}
 }
 
+// FileExists reports whether filename exists and is a regular file (not a directory).
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -90,12 +95,14 @@ func FileExists(filename string) bool {
 	return !info.IsDir()
 }
 
+// SeparateFileFromPath splits fullpath into its directory and base filename components.
 func SeparateFileFromPath(fullpath string) (path string, filename string) {
 	filename = filepath.Base(fullpath)
 	path = filepath.Dir(fullpath)
 	return path, filename
 }
 
+// CheckSum computes the hex-encoded hash of filename using the provided hash algorithm.
 func CheckSum(hashAlgorithm hash.Hash, filename string) (string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -116,9 +123,15 @@ func CheckSum(hashAlgorithm hash.Hash, filename string) (string, error) {
 	}
 }
 
+// Sort_map_by_value_desc is a stub. TODO: not yet implemented.
 func Sort_map_by_value_desc() {}
-func Sort_map_by_value_asc()  {}
 
+// Sort_map_by_value_asc is a stub. TODO: not yet implemented.
+func Sort_map_by_value_asc() {}
+
+// BuildOutputHeader formats a human-readable header summarizing the analysis.
+// If timestamps contains exactly two entries they are shown as a time range.
+// The infos map is rendered as key-value pairs below the filename line.
 func BuildOutputHeader(logfile string, datetime string, timestamps []string, infos map[string]string) string {
 	header := "We analyzed "
 	if len(timestamps) == 2 {

@@ -8,9 +8,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// configuration structures
-// ========================
-
+// ApplicationConfig holds the top-level application settings, typically loaded
+// from a YAML configuration file.
 type ApplicationConfig struct {
 	DateLayout          string    `yaml:"DateLayout"`
 	OutputFolder        string    `yaml:"OutputFolder"`
@@ -20,6 +19,7 @@ type ApplicationConfig struct {
 	Logcfg              LogConfig `yaml:"LogConfig"`
 }
 
+// LogConfig contains settings for the application's own log output.
 type LogConfig struct {
 	LogLevel  string `yaml:"LogLevel"`
 	LogFolder string `yaml:"LogFolder"`
@@ -27,6 +27,9 @@ type LogConfig struct {
 
 // ToDo: standardize logfile layout according to https://httpd.apache.org/docs/2.4/mod/mod_log_config.html#formats
 
+// Initialize populates the configuration by first setting defaults and then
+// overlaying values from the YAML file at configPath (if it exists).
+// It calls CheckConfig to validate and normalise the resulting config.
 func (config *ApplicationConfig) Initialize(configPath *string) {
 	// 1. set defaults
 	config.setDefaults()
@@ -44,6 +47,7 @@ func (config *ApplicationConfig) Initialize(configPath *string) {
 	config.CheckConfig()
 }
 
+// setDefaults populates config with sensible default values.
 func (config *ApplicationConfig) setDefaults() {
 	*config = ApplicationConfig{
 		DateLayout:   "02/Jan/2006:15:04:05 -0700",
@@ -57,6 +61,8 @@ func (config *ApplicationConfig) setDefaults() {
 	}
 }
 
+// CheckConfig normalises directory paths (ensuring trailing slashes) and
+// verifies that the required directories exist, prompting for creation if not.
 func (c *ApplicationConfig) CheckConfig() {
 	// TODO: hier könnte noch ein DateLayoutCheck rein
 	checknaddtrailingslash(&c.Logcfg.LogFolder)
@@ -71,9 +77,7 @@ func (c *ApplicationConfig) CheckConfig() {
 	}
 }
 
-// further stuctures and functions
-// ================================
-
+// File2Parse represents a file that is to be parsed/analyzed.
 type File2Parse struct {
 	FileName string
 }
