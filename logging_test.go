@@ -133,3 +133,63 @@ func TestSetupLoggingExistingFileRename(t *testing.T) {
 		t.Errorf("expected at least 2 files (renamed + new), got %d", len(entries))
 	}
 }
+
+// ──────────────────────────────────────────────
+// SetupLogging — duplicate renamed file (counter suffix)
+// ──────────────────────────────────────────────
+
+func TestSetupLoggingDuplicateRename(t *testing.T) {
+	dir := t.TempDir()
+
+	// Build the expected filename
+	filename := ApplicationName + "_" + time.Now().Format("20060102_150405") + ".log"
+	existingFile := filepath.Join(dir, filename)
+	if err := os.WriteFile(existingFile, []byte("old log"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Also pre-create the renamed file (filename + "_" + today)
+	today := time.Now().Format("2006-01-02")
+	renamedFile := filepath.Join(dir, filename+"_"+today)
+	if err := os.WriteFile(renamedFile, []byte("already renamed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	logcfg := LogConfig{
+		LogLevel:  "Info",
+		LogFolder: dir + "/",
+	}
+	logger := SetupLogging(logcfg)
+	if logger == nil {
+		t.Fatal("SetupLogging returned nil logger")
+	}
+
+	// Verify we now have at least 3 files: the counter-suffixed rename, the original rename, and the new log
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) < 3 {
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name()
+		}
+		t.Errorf("expected at least 3 files, got %d: %v", len(entries), names)
+	}
+
+	// Verify a counter-suffixed file exists
+	found := false
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), filename+"_"+today+".") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name()
+		}
+		t.Errorf("expected a counter-suffixed file, got files: %v", names)
+	}
+}
