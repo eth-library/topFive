@@ -36,11 +36,11 @@ type Log2Analyze struct {
 	EntryCount   int
 }
 
-var placeholder_lut = make(map[string]int)
+var placeholderLut = make(map[string]int)
 
-// fill_placeholder_lut builds a lookup table mapping log format placeholders
+// fillPlaceholderLut builds a lookup table mapping log format placeholders
 // (e.g. %h, %t, %r) to their positional index in a split log line.
-func fill_placeholder_lut() {
+func fillPlaceholderLut() {
 	// create lut for the log entry's parts
 	// doesn't work for user agent strings, as we cannot foresee the length
 	placeholders := strings.Fields(config.LogFormat)
@@ -58,7 +58,7 @@ func fill_placeholder_lut() {
 	}
 	LogIt.Debug("will create lut with the placeholders: " + strings.Join(placeholders[:], ","))
 	for i, placeholder := range placeholders {
-		placeholder_lut[placeholder] = i
+		placeholderLut[placeholder] = i
 	}
 }
 
@@ -66,7 +66,7 @@ func fill_placeholder_lut() {
 // entries that match the current filter criteria (time range, IP, response code,
 // query string). If timerange is 0 the entire file is scanned.
 func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
-	fill_placeholder_lut()
+	fillPlaceholderLut()
 
 	file, err := os.Open(l.FileName)
 	if err != nil {
@@ -74,7 +74,11 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 		fmt.Println("Error opening file: " + l.FileName)
 		log.Fatal(err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			LogIt.Debug("Error closing file: " + l.FileName)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file) // scan the contents of a file and print line by line
 	c := 0
@@ -82,35 +86,35 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		cl++
-		entry := create_entry(line)
+		entry := createEntry(line)
 		// StartTime is zero, if this is the first entry
 		if l.StartTime.IsZero() {
 			// TODO: check the date layout and stopp the loop, if the date layout is not correct
 
 			// set the start and end time according to the date of the first entry
 			LogIt.Debug("l.StartTime is zero, setting Start and End Time")
-			l.StartTime, l.EndTime = create_time_range(endtime, timerange, l.Date2analyze)
-			LogIt.Debug("Start Time: " + l.StartTime.Format(log_2_analyze.DateLayout))
-			LogIt.Debug("End Time: " + l.EndTime.Format(log_2_analyze.DateLayout))
+			l.StartTime, l.EndTime = createTimeRange(endtime, timerange, l.Date2analyze)
+			LogIt.Debug("Start Time: " + l.StartTime.Format(log2Analyze.DateLayout))
+			LogIt.Debug("End Time: " + l.EndTime.Format(log2Analyze.DateLayout))
 		}
 		// check to avoid crash
-		entry_ip := ""
-		if len(entry.IP) < len(*ip_adress) {
-			entry_ip = entry.IP
+		entryIP := ""
+		if len(entry.IP) < len(*ipAddress) {
+			entryIP = entry.IP
 		} else {
-			entry_ip = entry.IP[0:len(*ip_adress)]
+			entryIP = entry.IP[0:len(*ipAddress)]
 		}
-		entry_nip := ""
-		if len(entry.IP) < len(*not_ip) {
-			entry_nip = entry.IP
+		entryNIP := ""
+		if len(entry.IP) < len(*notIP) {
+			entryNIP = entry.IP
 		} else {
-			entry_nip = entry.IP[0:len(*not_ip)]
+			entryNIP = entry.IP[0:len(*notIP)]
 		}
 		if (timerange == 0 || entry.Between(l.StartTime, l.EndTime)) &&
-			(*ip_adress == "" || entry_ip == *ip_adress) &&
-			(*not_ip == "" || entry_nip != *not_ip) &&
-			(*response_code == 0 || entry.Code == *response_code) &&
-			(*no_response_code == 0 || entry.Code != *no_response_code) {
+			(*ipAddress == "" || entryIP == *ipAddress) &&
+			(*notIP == "" || entryNIP != *notIP) &&
+			(*responseCode == 0 || entry.Code == *responseCode) &&
+			(*noResponseCode == 0 || entry.Code != *noResponseCode) {
 			if strings.Contains(entry.Request, l.QueryString) || l.QueryString == "" {
 				l.Entries = append(l.Entries, entry)
 				c++
@@ -134,47 +138,47 @@ func (l *Log2Analyze) RetrieveEntries(endtime string, timerange int) {
 // GetTopIPs returns the top N IP classes by request count along with a map of
 // HTTP status code frequencies. N is controlled by the -n flag (topIPsCount).
 func (l Log2Analyze) GetTopIPs() (map[string]int, map[int]int) {
-	ip_count := make(map[string]int)
-	code_count := make(map[int]int)
+	ipCount := make(map[string]int)
+	codeCount := make(map[int]int)
 	for _, record := range l.Entries {
-		ip_count[record.Class]++
-		code_count[record.Code]++
+		ipCount[record.Class]++
+		codeCount[record.Code]++
 	}
 
-	// to prevent it from crashing, when the given map ip_count, we check the length
+	// to prevent it from crashing, when the given map ipCount, we check the length
 	// of the map and if it is empty, we return an empty map
 	// if the map is not empty, we sort the map by the request count and return the top 5 or less
-	top_ips := make(map[string]int)
-	entries := len(ip_count)
+	topIPs := make(map[string]int)
+	entries := len(ipCount)
 	if entries > *topIPsCount && *topIPsCount > 0 {
 		entries = *topIPsCount
 	}
 	if entries > 0 {
 		// build a slice of the keys of the map, so we can sort it to get the top 5
 		ips := make([]string, 0, entries)
-		for ip := range ip_count {
+		for ip := range ipCount {
 			ips = append(ips, ip)
 		}
 		// sort the slice by the request count
 		sort.SliceStable(ips, func(i, j int) bool {
-			return ip_count[ips[i]] > ip_count[ips[j]]
+			return ipCount[ips[i]] > ipCount[ips[j]]
 		})
 		// get the top 5 or less, if there are less than 5 entries
-		// be aware, that the resulting map (top_ips) is not ordered!
+		// be aware, that the resulting map (topIPs) is not ordered!
 		for i := 0; i < entries; i++ {
-			top_ips[ips[i]] = ip_count[ips[i]]
+			topIPs[ips[i]] = ipCount[ips[i]]
 		}
 	}
-	return top_ips, code_count
+	return topIPs, codeCount
 }
 
 // WriteOutputFiles writes the analysis results to the configured output folder.
 // Depending on the -combined flag it writes either one file per top IP or a
 // single combined file. A response-code summary file is always written.
-func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[int]int) {
+func (l Log2Analyze) WriteOutputFiles(topIPs map[string]int, codeCounts map[int]int) {
 	// one file per IP, if a number of topIPs is requested
 	if *topIPsCount > 0 {
-		if *combined_file {
+		if *combinedFile {
 			cfile, err := os.Create(config.OutputFolder + "combined-" + time.Now().Local().Format("20060102_150405") + ".txt")
 			if err != nil {
 				log.Fatal(err)
@@ -199,11 +203,11 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 			if *topIPsCount < 31 {
 				cfile.WriteString("\n\tTop IPs\t\t: count")
 				cfile.WriteString("\n\t------------------------------\n")
-				cfile.WriteString(sort_by_rcount(top_ips))
+				cfile.WriteString(sortByRcount(topIPs))
 			}
 
 			cfile.WriteString("\n")
-			for ip, count := range top_ips {
+			for ip, count := range topIPs {
 				cfile.WriteString("\n")
 				cfile.WriteString(ip + "\t" + "=> " + fmt.Sprintf("%v", count) + " requests\n")
 				cfile.WriteString("==================================================================\n")
@@ -214,7 +218,7 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 				}
 			}
 		} else {
-			for ip, count := range top_ips {
+			for ip, count := range topIPs {
 				file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
 				if err != nil {
 					log.Fatal(err)
@@ -235,15 +239,15 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 		}
 		defer file.Close()
 		// sort IPs
-		ips := make([]string, 0, len(top_ips))
-		for ip := range top_ips {
+		ips := make([]string, 0, len(topIPs))
+		for ip := range topIPs {
 			ips = append(ips, ip)
 		}
 		sort.SliceStable(ips, func(i, j int) bool {
-			return top_ips[ips[i]] > top_ips[ips[j]]
+			return topIPs[ips[i]] > topIPs[ips[j]]
 		})
 		for _, ip := range ips {
-			file.WriteString(ip + "\t" + fmt.Sprintf("%v", top_ips[ip]) + "\n")
+			file.WriteString(ip + "\t" + fmt.Sprintf("%v", topIPs[ip]) + "\n")
 		}
 
 	}
@@ -254,20 +258,20 @@ func (l Log2Analyze) WriteOutputFiles(top_ips map[string]int, code_counts map[in
 	defer file.Close()
 	file.WriteString("Code\tCount\n====\t=======\n")
 	// maps are not ordered, so we need to sort the map by the request count
-	entries := len(code_counts)
+	entries := len(codeCounts)
 	if entries > 0 {
 		// first step: get all the keys from the map into a slice, that can be sorted
 		codes := make([]int, 0, entries)
-		for code := range code_counts {
+		for code := range codeCounts {
 			codes = append(codes, code)
 		}
 		// second step: sort the slice by the request count
 		sort.SliceStable(codes, func(i, j int) bool {
-			return code_counts[codes[i]] > code_counts[codes[j]]
+			return codeCounts[codes[i]] > codeCounts[codes[j]]
 		})
 		// third step: iterate over the sorted slice and print the code and the request count
 		for _, c := range codes {
-			file.WriteString(fmt.Sprintf("%d\t%d", c, code_counts[c]) + "\n")
+			file.WriteString(fmt.Sprintf("%d\t%d", c, codeCounts[c]) + "\n")
 		}
 	}
 }
@@ -279,13 +283,13 @@ func (e LogEntry) Between(start, end time.Time) bool {
 	passt := e.TimeStamp.After(start) && e.TimeStamp.Before(end)
 
 	// the following line produces heavy debug output
-	// LogIt.Debug(start.Format(log_2_analyze.DateLayout) + " > " + e.TimeStamp.Format(log_2_analyze.DateLayout) + " > " + end.Format(log_2_analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
+	// LogIt.Debug(start.Format(log2Analyze.DateLayout) + " > " + e.TimeStamp.Format(log2Analyze.DateLayout) + " > " + end.Format(log2Analyze.DateLayout) + " :: " + fmt.Sprintf("%v", passt))
 	return passt
 }
 
-// create_entry dispatches to the appropriate parser based on config.LogType
+// createEntry dispatches to the appropriate parser based on config.LogType
 // and returns the resulting LogEntry.
-func create_entry(line string) LogEntry {
+func createEntry(line string) LogEntry {
 	// creates a LogEntry from a line
 	var ip, class, method, request, rtime string
 	var code int
@@ -293,13 +297,13 @@ func create_entry(line string) LogEntry {
 
 	switch config.LogType {
 	case "apache_atmire":
-		ip, class, timestamp, method, request, code, rtime = parse_apache_atmire(line)
+		ip, class, timestamp, method, request, code, rtime = parseApacheAtmire(line)
 	case "logfmt":
-		ip, class, timestamp, method, request, code, rtime = parse_log(line)
+		ip, class, timestamp, method, request, code, rtime = parseLog(line)
 	case "apache":
-		ip, class, timestamp, method, request, code, rtime = parse_apache(line)
+		ip, class, timestamp, method, request, code, rtime = parseApache(line)
 	case "rosetta":
-		ip, class, timestamp, method, request, code, rtime = parse_rosetta(line)
+		ip, class, timestamp, method, request, code, rtime = parseRosetta(line)
 	}
 	return LogEntry{
 		IP:        ip,
@@ -312,17 +316,17 @@ func create_entry(line string) LogEntry {
 	}
 }
 
-// parse_apache_atmire parses a log line in the Apache/Atmire combined format.
-func parse_apache_atmire(line string) (string, string, time.Time, string, string, int, string) {
+// parseApacheAtmire parses a log line in the Apache/Atmire combined format.
+func parseApacheAtmire(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, codestring, rtime string
 	var code int
 	var timestamp time.Time
 	var err error
 	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
 	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
-	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+	timestamp, err = time.Parse(log2Analyze.DateLayout, timestring)
 	if err != nil {
-		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log2Analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
 	// crude workaround for short lines
@@ -353,15 +357,15 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	}
 
 	// switch to get the IP class
-	ip_parts := strings.Split(ip, ".")
-	if len(ip_parts) == 4 {
+	ipParts := strings.Split(ip, ".")
+	if len(ipParts) == 4 {
 		switch *IPclass {
 		case "A":
-			class = ip_parts[0]
+			class = ipParts[0]
 		case "B":
-			class = ip_parts[0] + "." + ip_parts[1]
+			class = ipParts[0] + "." + ipParts[1]
 		case "C":
-			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+			class = ipParts[0] + "." + ipParts[1] + "." + ipParts[2]
 		case "D":
 			class = ip
 		default:
@@ -373,17 +377,17 @@ func parse_apache_atmire(line string) (string, string, time.Time, string, string
 	return ip, class, timestamp, method, request, code, rtime
 }
 
-// parse_apache parses a log line in the standard Apache combined log format.
-func parse_apache(line string) (string, string, time.Time, string, string, int, string) {
+// parseApache parses a log line in the standard Apache combined log format.
+func parseApache(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, codestring, rtime string
 	var code int
 	var timestamp time.Time
 	var err error
 	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
 	timestring := strings.Replace(parts[3], "[", "", 1) + " " + strings.Replace(parts[4], "]", "", 1)
-	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+	timestamp, err = time.Parse(log2Analyze.DateLayout, timestring)
 	if err != nil {
-		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log2Analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
 	// crude workaround for short lines
@@ -413,15 +417,15 @@ func parse_apache(line string) (string, string, time.Time, string, string, int, 
 		code = 0
 	}
 	// switch to get the IP class
-	ip_parts := strings.Split(ip, ".")
-	if len(ip_parts) == 4 {
+	ipParts := strings.Split(ip, ".")
+	if len(ipParts) == 4 {
 		switch *IPclass {
 		case "A":
-			class = ip_parts[0]
+			class = ipParts[0]
 		case "B":
-			class = ip_parts[0] + "." + ip_parts[1]
+			class = ipParts[0] + "." + ipParts[1]
 		case "C":
-			class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+			class = ipParts[0] + "." + ipParts[1] + "." + ipParts[2]
 		case "D":
 			class = ip
 		default:
@@ -433,17 +437,17 @@ func parse_apache(line string) (string, string, time.Time, string, string, int, 
 	return ip, class, timestamp, method, request, code, rtime
 }
 
-// parse_rosetta parses a log line in the Rosetta format (extra hostname field before the IP).
-func parse_rosetta(line string) (string, string, time.Time, string, string, int, string) {
+// parseRosetta parses a log line in the Rosetta format (extra hostname field before the IP).
+func parseRosetta(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, codestring, rtime string
 	var code int
 	var timestamp time.Time
 	var err error
 	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
 	timestring := strings.Replace(parts[4], "[", "", 1) + " " + strings.Replace(parts[5], "]", "", 1)
-	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+	timestamp, err = time.Parse(log2Analyze.DateLayout, timestring)
 	if err != nil {
-		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log2Analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
 	// crude workaround for short lines
@@ -469,6 +473,9 @@ func parse_rosetta(line string) (string, string, time.Time, string, string, int,
 	} else {
 		codestring = parts[9]
 	}
+	if len(parts) > 13 {
+		rtime = parts[13]
+	}
 	code, err = strconv.Atoi(codestring)
 	if err != nil {
 		LogIt.Error("Error parsing code (maybe hacking?): " + codestring)
@@ -477,14 +484,14 @@ func parse_rosetta(line string) (string, string, time.Time, string, string, int,
 		code = 0
 	}
 	// switch to get the IP class
-	ip_parts := strings.Split(ip, ".")
+	ipParts := strings.Split(ip, ".")
 	switch *IPclass {
 	case "A":
-		class = ip_parts[0]
+		class = ipParts[0]
 	case "B":
-		class = ip_parts[0] + "." + ip_parts[1]
+		class = ipParts[0] + "." + ipParts[1]
 	case "C":
-		class = ip_parts[0] + "." + ip_parts[1] + "." + ip_parts[2]
+		class = ipParts[0] + "." + ipParts[1] + "." + ipParts[2]
 	case "D":
 		class = ip
 	default:
@@ -493,19 +500,19 @@ func parse_rosetta(line string) (string, string, time.Time, string, string, int,
 	return ip, class, timestamp, method, request, code, rtime
 }
 
-// parse_log parses a log line using the placeholder lookup table (logfmt-style),
+// parseLog parses a log line using the placeholder lookup table (logfmt-style),
 // mapping field positions from the configured log format.
-func parse_log(line string) (string, string, time.Time, string, string, int, string) {
+func parseLog(line string) (string, string, time.Time, string, string, int, string) {
 	var ip, class, method, request, rtime string
 	var code int
 	var timestamp time.Time
 	var err error
 
 	parts := strings.Split(strings.Replace(line, "\"", "", -1), " ")
-	timestring := strings.Replace(parts[placeholder_lut["ts1"]], "[", "", 1) + " " + strings.Replace(parts[placeholder_lut["ts2"]], "]", "", 1)
-	timestamp, err = time.Parse(log_2_analyze.DateLayout, timestring)
+	timestring := strings.Replace(parts[placeholderLut["ts1"]], "[", "", 1) + " " + strings.Replace(parts[placeholderLut["ts2"]], "]", "", 1)
+	timestamp, err = time.Parse(log2Analyze.DateLayout, timestring)
 	if err != nil {
-		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log_2_analyze.DateLayout)
+		LogIt.Error("Error parsing timestamp: " + timestring + " with layout " + log2Analyze.DateLayout)
 		LogIt.Error("Error parsing timestamp: " + err.Error())
 	}
 	// crude workaround for short lines
@@ -518,12 +525,12 @@ func parse_log(line string) (string, string, time.Time, string, string, int, str
 		}
 	}
 
-	ip = parts[placeholder_lut["%h"]]
-	method = parts[placeholder_lut["m"]]
-	request = parts[placeholder_lut["r"]]
-	code, err = strconv.Atoi(parts[placeholder_lut["%>s"]])
+	ip = parts[placeholderLut["%h"]]
+	method = parts[placeholderLut["m"]]
+	request = parts[placeholderLut["r"]]
+	code, err = strconv.Atoi(parts[placeholderLut["%>s"]])
 	if err != nil {
-		LogIt.Error("Error parsing status code: " + parts[placeholder_lut["%>s"]])
+		LogIt.Error("Error parsing status code: " + parts[placeholderLut["%>s"]])
 		code = 0
 	}
 
@@ -548,10 +555,10 @@ func parse_log(line string) (string, string, time.Time, string, string, int, str
 	return ip, class, timestamp, method, request, code, rtime
 }
 
-// create_time_range builds a start/end time window. The window ends at
+// createTimeRange builds a start/end time window. The window ends at
 // endtimestring on date2analyze and spans timerange minutes backwards.
 // If timerange is 0 the start time is the zero value.
-func create_time_range(endtimestring string, timerange int, date2analyze string) (time.Time, time.Time) {
+func createTimeRange(endtimestring string, timerange int, date2analyze string) (time.Time, time.Time) {
 	// creates a time range to analyze the log file
 	// the range is defined by the time2analyze flag
 	// Will man ein anderes Datum parsen, muss man das per Schlater übergeben!
@@ -562,14 +569,14 @@ func create_time_range(endtimestring string, timerange int, date2analyze string)
 	LogIt.Debug("End Time String: " + endtimestring)
 	// create a time object from the endtimestring
 	endtime, _ := time.Parse("2006-01-02 15:04:05 -0700", endtimestring)
-	LogIt.Debug("created End Time: " + endtime.Format(log_2_analyze.DateLayout))
+	LogIt.Debug("created End Time: " + endtime.Format(log2Analyze.DateLayout))
 
 	var starttime time.Time
 	if timerange > 0 {
 		// create a starttime by subtracting the timerange from the endtime
 		starttime = endtime.Add(time.Duration(-timerange) * time.Minute)
 	}
-	LogIt.Debug("created Start Time( - " + fmt.Sprintf("%d", timerange) + "): " + starttime.Format(log_2_analyze.DateLayout))
+	LogIt.Debug("created Start Time( - " + fmt.Sprintf("%d", timerange) + "): " + starttime.Format(log2Analyze.DateLayout))
 	return starttime, endtime
 }
 

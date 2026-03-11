@@ -8,3 +8,6 @@ data
 dom-statt-ip.txt
 conf.d/lb.yaml
 .claude
+/docs
+/topFive_amd64
+/topFive_arm64
