@@ -6,18 +6,18 @@ import (
 )
 
 // ──────────────────────────────────────────────
-// sort_by_rcount
+// sortByRcount
 // ──────────────────────────────────────────────
 
 func TestSortByRcountEmpty(t *testing.T) {
-	got := sort_by_rcount(map[string]int{})
+	got := sortByRcount(map[string]int{})
 	if got != "" {
 		t.Errorf("expected empty string for empty map, got %q", got)
 	}
 }
 
 func TestSortByRcountSingle(t *testing.T) {
-	got := sort_by_rcount(map[string]int{"1.2.3.4": 42})
+	got := sortByRcount(map[string]int{"1.2.3.4": 42})
 	if !strings.Contains(got, "1.2.3.4") {
 		t.Errorf("output should contain IP, got %q", got)
 	}
@@ -32,7 +32,7 @@ func TestSortByRcountDescendingOrder(t *testing.T) {
 		"10.0.0.2": 50,
 		"10.0.0.3": 200,
 	}
-	got := sort_by_rcount(m)
+	got := sortByRcount(m)
 
 	// The highest count (200) should appear before the lowest (50)
 	pos200 := strings.Index(got, "200")
@@ -52,7 +52,7 @@ func TestSortByRcountTies(t *testing.T) {
 		"10.0.0.1": 5,
 		"10.0.0.2": 5,
 	}
-	got := sort_by_rcount(m)
+	got := sortByRcount(m)
 
 	if !strings.Contains(got, "10.0.0.1") {
 		t.Errorf("output should contain 10.0.0.1, got %q", got)

@@ -22,39 +22,39 @@ var (
 	endtime            = flag.String("t", time.Now().Format("15:04"), "use -t to provide a custom End-Time (e.g. 15:04) to analyze from backwards")
 	topIPsCount        = flag.Int("n", 5, "use -n to provide the number of top IPs to show")
 	IPclass            = flag.String("k", "D", "use -k to summarize the IP class instead of IP addresses: A means X.255.255.255 C means X.Y.Z.255")
-	log_2_analyze      *Log2Analyze
+	log2Analyze        *Log2Analyze
 	file2parse         = flag.String("f", "/var/log/httpd/ssl_access_log", "use -f to provide a custom path to the file  to parse")
-	date_layout        = flag.String("dl", "02/Jan/2006:15:04:05 -0700", "use -dl to provide annother layout for the datestamps within the logfile to analyze")
+	dateLayout         = flag.String("dl", "02/Jan/2006:15:04:05 -0700", "use -dl to provide annother layout for the datestamps within the logfile to analyze")
 	date2analyze       = flag.String("d", time.Now().Format("2006-01-02"), "use -d to provide the date to analyze")
-	ip_adress          = flag.String("i", "", "use -i to provide an IP adress to analyze")
-	not_ip             = flag.String("ni", "", "use -ni to provide an IP adress to ignore in analysis")
-	query_string       = flag.String("q", "", "use -q to provide a string to query the logfile for")
-	log_type           = flag.String("lt", "apache", "use -lt to provide a log type (apache_atmire | rosetta | apache | logfmt)")
-	log_format         = flag.String("lf", "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"", "use -lf to provide a log format (according to apache log strings)")
-	response_code      = flag.Int("r", 0, "use -r to provide a response code to filter for")
-	no_response_code   = flag.Int("nr", 0, "use -nr to provide a response code to ignore in analysis")
-	combined_file      = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
+	ipAddress          = flag.String("i", "", "use -i to provide an IP adress to analyze")
+	notIP              = flag.String("ni", "", "use -ni to provide an IP adress to ignore in analysis")
+	queryString        = flag.String("q", "", "use -q to provide a string to query the logfile for")
+	logType            = flag.String("lt", "apache", "use -lt to provide a log type (apache_atmire | rosetta | apache | logfmt)")
+	logFormat          = flag.String("lf", "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"", "use -lf to provide a log format (according to apache log strings)")
+	responseCode       = flag.Int("r", 0, "use -r to provide a response code to filter for")
+	noResponseCode     = flag.Int("nr", 0, "use -nr to provide a response code to ignore in analysis")
+	combinedFile       = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
 )
 
-// sort_by_rcount returns a formatted string listing the entries of IP_rcount
+// sortByRcount returns a formatted string listing the entries of ipRcount
 // sorted in descending order by request count.
-func sort_by_rcount(IP_rcount map[string]int) string {
+func sortByRcount(ipRcount map[string]int) string {
 	var output string
 	// maps are not ordered, so we need to sort the map by the request count
-	entries := len(IP_rcount)
+	entries := len(ipRcount)
 	if entries > 0 {
 		// first step: get all the keys from the map into a slice, that can be sorted
 		ips := make([]string, 0, entries)
-		for ip := range IP_rcount {
+		for ip := range ipRcount {
 			ips = append(ips, ip)
 		}
 		// second step: sort the slice by the request count
 		sort.SliceStable(ips, func(i, j int) bool {
-			return IP_rcount[ips[i]] > IP_rcount[ips[j]]
+			return ipRcount[ips[i]] > ipRcount[ips[j]]
 		})
 		// third step: iterate over the sorted slice and print the ip and the request count
 		for _, ip := range ips {
-			output += "\t" + ip + "\t: " + fmt.Sprintf("%v", IP_rcount[ip]) + "\n"
+			output += "\t" + ip + "\t: " + fmt.Sprintf("%v", ipRcount[ip]) + "\n"
 		}
 	}
 	return output
@@ -71,13 +71,13 @@ func main() {
 	fmt.Println("LogLevel is set to " + config.Logcfg.LogLevel)
 	fmt.Println("will log to", config.Logcfg.LogFolder)
 
-	log_2_analyze = new(Log2Analyze)
+	log2Analyze = new(Log2Analyze)
 	if FlagIsPassed("dl") {
-		log_2_analyze.DateLayout = *date_layout
-		LogIt.Info("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -l is passed")
-		fmt.Println("setting DateLayout to " + *date_layout + " instead of DateLayout from config file, because -l is passed")
+		log2Analyze.DateLayout = *dateLayout
+		LogIt.Info("setting DateLayout to " + *dateLayout + " instead of DateLayout from config file, because -l is passed")
+		fmt.Println("setting DateLayout to " + *dateLayout + " instead of DateLayout from config file, because -l is passed")
 	} else {
-		log_2_analyze.DateLayout = config.DateLayout
+		log2Analyze.DateLayout = config.DateLayout
 	}
 	if FlagIsPassed("i") && !FlagIsPassed("m") {
 		*timeRange = 0
@@ -86,79 +86,79 @@ func main() {
 		fmt.Println("  which means: will analyze the whole file")
 	}
 	if FlagIsPassed("ni") {
-		LogIt.Info("ip to ignore is set to " + fmt.Sprint(*not_ip))
-		fmt.Println("ip to ignore is set to " + fmt.Sprint(*not_ip))
+		LogIt.Info("ip to ignore is set to " + fmt.Sprint(*notIP))
+		fmt.Println("ip to ignore is set to " + fmt.Sprint(*notIP))
 	}
 	if FlagIsPassed("lt") || config.LogType == "" {
-		config.LogType = *log_type
-		LogIt.Info("setting LogType to " + *log_type)
-		fmt.Println("setting LogType to " + *log_type)
+		config.LogType = *logType
+		LogIt.Info("setting LogType to " + *logType)
+		fmt.Println("setting LogType to " + *logType)
 	}
 	if FlagIsPassed("l") || config.LogFormat == "" {
-		config.LogFormat = *log_format
-		LogIt.Info("setting log format to " + *log_format)
-		fmt.Println("setting log format to " + *log_format)
+		config.LogFormat = *logFormat
+		LogIt.Info("setting log format to " + *logFormat)
+		fmt.Println("setting log format to " + *logFormat)
 	}
 	if FlagIsPassed("d") {
-		log_2_analyze.Date2analyze = *date2analyze
+		log2Analyze.Date2analyze = *date2analyze
 	} else {
-		log_2_analyze.Date2analyze = time.Now().Format("2006-01-02")
+		log2Analyze.Date2analyze = time.Now().Format("2006-01-02")
 	}
-	LogIt.Info("setting date to analyze to " + log_2_analyze.Date2analyze)
-	fmt.Println("setting date to analyze to " + log_2_analyze.Date2analyze)
+	LogIt.Info("setting date to analyze to " + log2Analyze.Date2analyze)
+	fmt.Println("setting date to analyze to " + log2Analyze.Date2analyze)
 
 	if FlagIsPassed("q") {
-		LogIt.Info("query string is set to " + *query_string)
-		fmt.Println("query string is set to " + *query_string)
-		log_2_analyze.QueryString = *query_string
+		LogIt.Info("query string is set to " + *queryString)
+		fmt.Println("query string is set to " + *queryString)
+		log2Analyze.QueryString = *queryString
 	}
 
 	if FlagIsPassed("r") {
-		LogIt.Info("response code to filter for is set to " + fmt.Sprint(*response_code))
-		fmt.Println("response code to filter for is set to " + fmt.Sprint(*response_code))
+		LogIt.Info("response code to filter for is set to " + fmt.Sprint(*responseCode))
+		fmt.Println("response code to filter for is set to " + fmt.Sprint(*responseCode))
 	}
 
 	if FlagIsPassed("nr") {
-		LogIt.Info("response code to ignore is set to " + fmt.Sprint(*no_response_code))
-		fmt.Println("response code to ignore is set to " + fmt.Sprint(*no_response_code))
+		LogIt.Info("response code to ignore is set to " + fmt.Sprint(*noResponseCode))
+		fmt.Println("response code to ignore is set to " + fmt.Sprint(*noResponseCode))
 	}
 
 	fmt.Println("output is written to", config.OutputFolder)
 	// start working
 	if FlagIsPassed("f") || config.DefaultFile2analyze == "" {
-		log_2_analyze.FileName = *file2parse
+		log2Analyze.FileName = *file2parse
 		LogIt.Info("setting FileName to " + *file2parse)
 		fmt.Println("setting FileName to " + *file2parse)
 	} else {
-		log_2_analyze.FileName = config.DefaultFile2analyze
+		log2Analyze.FileName = config.DefaultFile2analyze
 	}
 
-	log_2_analyze.RetrieveEntries(*endtime, *timeRange)
+	log2Analyze.RetrieveEntries(*endtime, *timeRange)
 
-	top_ips, code_count := log_2_analyze.GetTopIPs()
+	topIPs, codeCount := log2Analyze.GetTopIPs()
 
-	log_2_analyze.WriteOutputFiles(top_ips, code_count)
+	log2Analyze.WriteOutputFiles(topIPs, codeCount)
 	// print output
 	infos := make(map[string]string)
 	var timestamps []string
-	infos["Total requests"] = fmt.Sprintf("%v", log_2_analyze.EntryCount)
+	infos["Total requests"] = fmt.Sprintf("%v", log2Analyze.EntryCount)
 	if *timeRange != 0 {
-		timestamps = append(timestamps, log_2_analyze.StartTime.Format("2006-01-02 15:04"))
-		timestamps = append(timestamps, log_2_analyze.EndTime.Format("2006-01-02 15:04"))
-		infos["Requests per second"] = fmt.Sprintf("%v", log_2_analyze.EntryCount/(*timeRange*60))
+		timestamps = append(timestamps, log2Analyze.StartTime.Format("2006-01-02 15:04"))
+		timestamps = append(timestamps, log2Analyze.EndTime.Format("2006-01-02 15:04"))
+		infos["Requests per second"] = fmt.Sprintf("%v", log2Analyze.EntryCount/(*timeRange*60))
 	}
-	if log_2_analyze.QueryString != "" {
-		infos["query string"] = log_2_analyze.QueryString
+	if log2Analyze.QueryString != "" {
+		infos["query string"] = log2Analyze.QueryString
 	}
 
-	header := BuildOutputHeader(log_2_analyze.FileName, time.Now().Local().Format("20060102_150405"), timestamps, infos)
+	header := BuildOutputHeader(log2Analyze.FileName, time.Now().Local().Format("20060102_150405"), timestamps, infos)
 	fmt.Println(header)
 	LogIt.Info(header)
-	sorted_ips := sort_by_rcount(top_ips)
+	sortedIPs := sortByRcount(topIPs)
 	fmt.Println("")
 	fmt.Println("\tTop IPs\t\t: count")
 	fmt.Println("\t------------------------------")
-	fmt.Println(sorted_ips)
-	LogIt.Info(sorted_ips)
+	fmt.Println(sortedIPs)
+	LogIt.Info(sortedIPs)
 	fmt.Printf("finished in %v\n", time.Since(pst))
 }

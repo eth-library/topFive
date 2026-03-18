@@ -123,11 +123,11 @@ func CheckSum(hashAlgorithm hash.Hash, filename string) (string, error) {
 	}
 }
 
-// Sort_map_by_value_desc is a stub. TODO: not yet implemented.
-func Sort_map_by_value_desc() {}
+// SortMapByValueDesc is a stub. TODO: not yet implemented.
+func SortMapByValueDesc() {}
 
-// Sort_map_by_value_asc is a stub. TODO: not yet implemented.
-func Sort_map_by_value_asc() {}
+// SortMapByValueAsc is a stub. TODO: not yet implemented.
+func SortMapByValueAsc() {}
 
 // BuildOutputHeader formats a human-readable header summarizing the analysis.
 // If timestamps contains exactly two entries they are shown as a time range.
