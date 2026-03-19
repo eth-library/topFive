@@ -1,93 +1,145 @@
 topFive
 =======
 
-This is a simple program that reads a log file and returns the top five IPs with the most requests.
+A CLI tool that reads a web server log file and returns the top N IPs with the most requests within a configurable time window.
 
-Note: It takes the timestamp from the first log entry for the date to analyze
+Note: It takes the timestamp from the first log entry for the date to analyze.
 
-Also note: Actually there is no Windows-Version!
+Also note: There is no Windows version.
 
-And finally please note: This Software was originally developed in 2025 by human brain. Since 2026 AI assists in writing tests and new functions.
+And finally: This software was originally developed in 2025 by human brain. Since 2026 AI assists in writing tests and new functions.
 
-## why it's useful:
-When your server get's hammered by requests you have to react quickly without spending the time with searching for the logfile and having to write complex greps to see, who's doing whta on your machine.
+## Why it's useful
 
-Instead just call `topFive` and it will answer with the top five IP addresses with the most requests for the last five minutes. As a first aid you could simply block them.
+When your server gets hammered by requests you have to react quickly — without spending time searching for the log file or writing complex greps to see who's doing what.
 
-But there's more: for further analysis **topFive** will create an output folder and put a file for each of the top five IP addresses into it. Each file contains the request count and the requests with the timestamp, the request type, the request itself and the response code.
+Just call `topFive` and it will answer with the top five IP addresses with the most requests for the last five minutes. As a first measure you can simply block them.
 
-**topFive** is a simple binary with no dependecies, uses a bare minimum of ressources when executed, so it won't stress your machine while it's under attack, and **topFive** is fast. It will parse 100MB in under 400 milliseconds.
+For further analysis **topFive** creates an output folder and puts a file for each of the top IPs into it. Each file contains the request count and the individual requests with timestamp, method, URL, response code, response time, and User-Agent.
+
+**topFive** is a single binary with no runtime dependencies, uses a bare minimum of resources, and is fast: it parses 100 MB of logs in under 400 milliseconds.
 
 ## Usage
-In emergency just call the binary `topFive`, it will run with the following defaults:
-- parse the logfile `/var/log/httpd/ssl_access_log`
-- with the date layout `"02/Jan/2006:15:04:05 -0700"` for the datestamps within the logfile to analyze,
-- from the actual time minus five minutes till now
-- compute the top five IP adresses with the most requests during that time range
-- write to the folder `./output`
-- the following six files:
 
-      - xxyyy_aaa.aaa.aaa.aaa.txt
-      - xxyyy_bbb.bbb.bbb.bbb.txt
-      - xxxyy_ccc.ccc.ccc.ccc.txt
-      - xxxyy_ddd.ddd.ddd.ddd.txt
-      - xxxxy_eee.eee.eee.eee.txt
-      - response_codes.txt
-    where xxyyy is the request count, followed by an underscore and the requesting IP address.
-- write a logfile `./logs/YYYYMMDD_hhmmss.log`
-- print out the top five IP adresses with the corresponding request counts
+In an emergency just call the binary. It runs with these defaults:
+- parse `/var/log/httpd/ssl_access_log`
+- date layout `"02/Jan/2006:15:04:05 -0700"`
+- time window: last 5 minutes
+- compute the top 5 IP addresses by request count
+- write output to `./output/`:
 
-> IMPORTANT: 
-> Your Account musst have read rights to the logfile to analyze and access rights to the corresponding folders!
+      xxyyy_aaa.aaa.aaa.aaa.txt
+      xxyyy_bbb.bbb.bbb.bbb.txt
+      xxxyy_ccc.ccc.ccc.ccc.txt
+      xxxyy_ddd.ddd.ddd.ddd.txt
+      xxxxy_eee.eee.eee.eee.txt
+      response_codes-<timestamp>.txt
 
+  where `xxyyy` is the request count, followed by the IP address.
+- write application log to `./logs/<timestamp>.log`
+- print the top IPs with request counts to stdout
+
+> **Important:** Your account must have read rights on the log file and write rights on the output and log folders.
 
 ## Options
-Customize the call with the following flags:
+
 ```
-`-c`        to provide a custom path to the config file (default: /etc/topFive/conf.d/examplecfg.yml)
-`-dl`       to provide annother layout for the datestamps within the logfile to analyze (default: 02/Jan/2006:15:04:05 -0700)
-`-f`        to provide a custom path to the file  to parse (default: /var/log/httpd/ssl_access_log)
-`-i`        to provide an IP adress to analyze (default: <empty>)
-`-ni`       to provide an IP adress or IPs starting with... to ignore in analysis
-`-k`        to summarize the IP class instead of IP addresses where
-                  A means X.255.255.255 
-                  B means X.X.255.255 
-                  C means X.X.X.255 
-                  defaults to IP adresses: X.X.X.X 
-`-m`        to provide a custom time range (in minutes, default: 5) to analyze, set to zero (0) to do the whole file 
-`-n`        to provide the number of top IPs to show (default: 5)
-`-q`        to provide a query string to restrict the analysis to (default: <empty>)
-`-r`        to provide a response code to filter for
-`-nr`       to provide a response code to ignore in analysis
-`-t`        to provide a custom End-Time (e.g. 15:04) to analyze from backwards (default: time.Now())
-`-lt`       to provide a log type (apache | apache_atmire | rosetta | logfmt) (default: apache)
-`-lf`       to provide a log format (according to apache log strings) (default: %h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\")
-`-combined` to write all top-IPs into one file
+-c          custom path to config file (default: /etc/topFive/conf.d/topFive.yml)
+-dl         date layout for timestamps in the log file (default: 02/Jan/2006:15:04:05 -0700)
+-f          path to the log file to parse (default: /var/log/httpd/ssl_access_log)
+-i          filter: only analyze this IP address
+-ni         filter: ignore this IP address (prefix match)
+-k          aggregate by IP class instead of full IP:
+                A  →  x.0.0.0
+                B  →  x.x.0.0
+                C  →  x.x.x.0
+                D  →  x.x.x.x  (default, full IP)
+-m          time range in minutes to analyze (default: 5); set to 0 for the whole file
+-n          number of top IPs to show (default: 5)
+-q          restrict analysis to requests containing this query string
+-r          filter: only include this HTTP response code
+-nr         filter: exclude this HTTP response code
+-t          end time to analyze backwards from, e.g. 15:04 (default: now)
+-lt         log type — see supported formats below (default: apache_combined)
+-combined   write all top-IP entries into one combined file instead of per-IP files
 ```
 
-**Attention:** Please keep in mind, that the custom LogType `logfmt` takes about 10 times of the ressources of the hardcoded versions. The hardcoded versions can parse a 1.3 GB log within two/three seconds, while the same log with the same configuration via `logfmt` takes 22 seconds. This is important, if your server is under heavy load.
+## Supported log formats (`-lt`)
 
-**Note:** The LogType `logfmt` is in early alpha and doesn't respect all the apache log configuration options, nor does it respect cumstom strings.
+| LogType | Description |
+|---------|-------------|
+| `apache_combined` | Apache Combined Log Format (default) |
+| `apache_common` | Apache Common Log Format (no Referer / User-Agent) |
+| `apache_atmire` | Apache Combined with additional Atmire research fields |
+| `nginx_combined` | nginx default combined format (identical field positions to Apache Combined) |
+| `haproxy_http` | HAProxy 2.x HTTP default log (no syslog prefix, no header captures) |
+| `rosetta` | ETHZ Rosetta log format |
+| `custom` | Custom format — define field positions via `LogFormat` block in config file |
 
-### change the date layout (`-dl` or DateLayout in the config file)
-The data layout is specified according to the time package in go. When specifying the layout it is important to keep the date and time values: 02/Jan/2006:15:04:05 -0700
+### HAProxy note
 
-## example call:
-Call `topFive` with a custom config at `conf.d/myConfig.yml` to analyze the file `./ssl_access_my.log.` Analyze **t**ill `9:55` *back* 10 minutes (time range from 9:45 **t**ill 9:55). Ignore IPs starting with 192.168.1. The Datestamps within the file `./ssl_access_my.log` will be in the format `YYYY-MM-DD hh:mm:ss` without a timezone:
+HAProxy timestamps include milliseconds and no timezone offset. Set `DateLayout` accordingly in your config:
+
+```yml
+DateLayout: "02/Jan/2006:15:04:05.000"
+LogType: haproxy_http
+```
+
+If your HAProxy logs include a syslog prefix (`Feb 12 12:14:14 hostname haproxy[pid]:`) or captured header fields (`{...}`), use `LogType: custom` and define the field positions manually.
+
+### Custom log format
+
+Use `LogType: custom` together with a `LogFormat` block to support any space-delimited log format.
+
+Tokenization: quotes are stripped first, then the line is split on spaces.
+
+```yml
+LogType: custom
+LogFormat:
+  IP: 0
+  IPFallback: -1       # fallback position when IP token is "-"; -1 to disable
+  IPStripPort: false   # strip trailing ":port" from IP token (e.g. for HAProxy)
+  TimeStamp: 3         # position of first timestamp token; second part is TimeStamp+1
+                       # single-token timestamps (e.g. [ts]) are detected automatically
+  Method: 5
+  Request: 6
+  Code: 8
+  RTime:
+    Position: 10       # response-time field position; Unit: 0 to disable
+    Unit: 1000         # divisor to convert to seconds (e.g. 1000 for ms)
+  UserAgent: 11        # first token of User-Agent; -1 to disable
+                       # all tokens from this position to EOL are joined
+```
+
+## Date layout (`-dl` / `DateLayout`)
+
+Specified according to Go's `time` package. The reference time is:
+
+```
+02/Jan/2006:15:04:05 -0700        (Apache / nginx)
+02/Jan/2006:15:04:05.000          (HAProxy, millisecond precision)
+2006-01-02 15:04:05               (ISO-style, no timezone)
+```
+
+## Example call
+
+Analyze `./ssl_access_my.log` with a custom config, from 9:45 to 9:55, ignoring the 192.168.1.x subnet:
 
 ```bash
 topFive -c conf.d/myConfig.yml -f ./ssl_access_my.log -t 9:55 -m 10 -ni 192.168.1. -dl "2006-01-02 15:04:05"
 ```
 
-## configuration example
+## Configuration example
 
 ```yml
 DateLayout: "02/Jan/2006:15:04:05 -0700"
 OutputFolder: ./output
-LogType: apache_atmire
-DefaultLog2analyze: /var/log/httpd/ssl_access_atmire_log
+LogType: apache_combined
+DefaultLog2analyze: /var/log/httpd/ssl_access_log
 
 LogConfig:
-  LogLevel: Debug
+  LogLevel: Info
   LogFolder: ./logs
 ```
+
+See `conf.d/` for ready-to-use example configs for Apache, nginx, HAProxy, Rosetta, and custom formats.
