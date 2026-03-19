@@ -61,3 +61,52 @@ func TestSortByRcountTies(t *testing.T) {
 		t.Errorf("output should contain 10.0.0.2, got %q", got)
 	}
 }
+
+// ──────────────────────────────────────────────
+// sortByRtime
+// ──────────────────────────────────────────────
+
+func TestSortByRtimeEmpty(t *testing.T) {
+	got := sortByRtime(map[string]float64{})
+	if got != "" {
+		t.Errorf("expected empty string for empty map, got %q", got)
+	}
+}
+
+func TestSortByRtimeSingle(t *testing.T) {
+	got := sortByRtime(map[string]float64{"1.2.3.4": 1.5})
+	if !strings.Contains(got, "1.2.3.4") {
+		t.Errorf("output should contain IP, got %q", got)
+	}
+	if !strings.Contains(got, "1.5") {
+		t.Errorf("output should contain rtime, got %q", got)
+	}
+}
+
+func TestSortByRtimeDescendingOrder(t *testing.T) {
+	m := map[string]float64{
+		"10.0.0.1": 1.2,
+		"10.0.0.2": 5.7,
+		"10.0.0.3": 0.3,
+	}
+	got := sortByRtime(m)
+
+	pos57 := strings.Index(got, "5.7")
+	pos12 := strings.Index(got, "1.2")
+	pos03 := strings.Index(got, "0.3")
+
+	if pos57 == -1 || pos12 == -1 || pos03 == -1 {
+		t.Fatalf("missing rtimes in output: %q", got)
+	}
+	if pos57 > pos12 || pos12 > pos03 {
+		t.Errorf("expected descending order (5.7, 1.2, 0.3), got: %s", got)
+	}
+}
+
+func TestSortByRtimeFormatOneDecimal(t *testing.T) {
+	got := sortByRtime(map[string]float64{"1.2.3.4": 3.0})
+	// formatted as %.1f so should show "3.0", not "3"
+	if !strings.Contains(got, "3.0") {
+		t.Errorf("expected %%.1f formatting (e.g. 3.0), got %q", got)
+	}
+}

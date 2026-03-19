@@ -1,0 +1,8 @@
+DateLayout: "02/Jan/2006:15:04:05 -0700"
+OutputFolder: ./output
+LogType: nginx_combined
+DefaultLog2analyze: /var/log/nginx/access.log
+
+LogConfig:
+  LogLevel: Info
+  LogFolder: ./logs

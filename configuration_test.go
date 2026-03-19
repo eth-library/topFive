@@ -20,11 +20,12 @@ func TestSetDefaults(t *testing.T) {
 	if cfg.OutputFolder != "./output/" {
 		t.Errorf("OutputFolder: got %q, want %q", cfg.OutputFolder, "./output/")
 	}
-	if cfg.LogType != "apache" {
-		t.Errorf("LogType: got %q, want %q", cfg.LogType, "apache")
+	if cfg.LogType != "apache_combined" {
+		t.Errorf("LogType: got %q, want %q", cfg.LogType, "apache_combined")
 	}
-	if cfg.LogFormat != `%h %l %u %t "%r" %>s %O "%{Referer}i" "%{User-Agent}i"` {
-		t.Errorf("LogFormat: got %q", cfg.LogFormat)
+	want := apacheLogFormat()
+	if cfg.LogFormat != want {
+		t.Errorf("LogFormat: got %+v, want %+v", cfg.LogFormat, want)
 	}
 	if cfg.Logcfg.LogLevel != "INFO" {
 		t.Errorf("LogLevel: got %q, want %q", cfg.Logcfg.LogLevel, "INFO")
@@ -89,8 +90,8 @@ func TestInitializeMissingFile(t *testing.T) {
 	cfg.Initialize(&missing)
 
 	// Should have defaults
-	if cfg.LogType != "apache" {
-		t.Errorf("LogType: got %q, want default %q", cfg.LogType, "apache")
+	if cfg.LogType != "apache_combined" {
+		t.Errorf("LogType: got %q, want default %q", cfg.LogType, "apache_combined")
 	}
 	if cfg.DateLayout != "02/Jan/2006:15:04:05 -0700" {
 		t.Errorf("DateLayout: got %q, want default", cfg.DateLayout)
@@ -105,7 +106,7 @@ func TestInitializePartialYAML(t *testing.T) {
 	os.MkdirAll(outDir, 0750)
 
 	// Only set LogType; other fields should keep defaults
-	yamlContent := `LogType: "logfmt"
+	yamlContent := `LogType: "rosetta"
 OutputFolder: "` + outDir + `"
 LogConfig:
   LogFolder: "` + logDir + `"
@@ -118,8 +119,12 @@ LogConfig:
 	var cfg ApplicationConfig
 	cfg.Initialize(&cfgFile)
 
-	if cfg.LogType != "logfmt" {
-		t.Errorf("LogType: got %q, want %q", cfg.LogType, "logfmt")
+	if cfg.LogType != "rosetta" {
+		t.Errorf("LogType: got %q, want %q", cfg.LogType, "rosetta")
+	}
+	// LogFormat should have been set to the rosetta preset by CheckConfig
+	if cfg.LogFormat.IP != 1 {
+		t.Errorf("LogFormat.IP for rosetta: got %d, want 1", cfg.LogFormat.IP)
 	}
 	// DateLayout should still be the default
 	if cfg.DateLayout != "02/Jan/2006:15:04:05 -0700" {

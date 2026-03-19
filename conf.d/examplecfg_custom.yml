@@ -1,0 +1,25 @@
+DateLayout: "02/Jan/2006:15:04:05 -0700"
+OutputFolder: ./output
+LogType: custom
+DefaultLog2analyze: /var/log/myapp/access.log
+
+# Custom log format: define field positions for the flat tokenizer.
+# Tokenization: strings.Replace(line, `"`, "", -1) followed by strings.Split(" ")
+#
+# Example log line (after quote removal):
+# [0]=IP  [1]=-  [2]=user  [3]=[ts1  [4]=ts2]  [5]=Method  [6]=Request  [7]=Proto  [8]=Code  [9]=Bytes  [10]=RTime(ms)
+LogFormat:
+  IP: 0
+  IPFallback: -1   # set to >= 0 to enable fallback when primary IP is "-"
+  TimeStamp: 3     # position of first timestamp part; second part is TimeStamp+1
+  Method: 5
+  Request: 6
+  Code: 8
+  RTime:
+    Position: 10   # set Unit to 0 to disable response-time parsing
+    Unit: 1000     # divisor to convert stored value to seconds (e.g. 1000 for ms)
+  UserAgent: 11    # first token of User-Agent (tokens from here to EOL are joined); set to -1 to disable
+
+LogConfig:
+  LogLevel: Info
+  LogFolder: ./logs

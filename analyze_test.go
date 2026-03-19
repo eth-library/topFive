@@ -14,12 +14,12 @@ func setupTestGlobals() {
 	// discard logger so tests don't produce log output
 	LogIt = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError + 1}))
 
-	// default config
+	// default config — apache format
 	config = ApplicationConfig{
 		DateLayout:   "02/Jan/2006:15:04:05 -0700",
 		OutputFolder: os.TempDir() + "/",
-		LogType:      "apache",
-		LogFormat:    `%h %l %u %t "%r" %>s %O "%{Referer}i" "%{User-Agent}i"`,
+		LogType:      "apache_combined",
+		LogFormat:    apacheLogFormat(),
 	}
 
 	// default log2Analyze
@@ -27,8 +27,7 @@ func setupTestGlobals() {
 		DateLayout: "02/Jan/2006:15:04:05 -0700",
 	}
 
-	// default flag values (these are already initialised by flag.Int/String, but
-	// we set them explicitly here so tests don't depend on flag.Parse order)
+	// default flag values
 	defaultIPClass := "D"
 	IPclass = &defaultIPClass
 
@@ -52,6 +51,413 @@ func setupTestGlobals() {
 
 	defaultCombined := false
 	combinedFile = &defaultCombined
+}
+
+// ──────────────────────────────────────────────
+// safeGet helper
+// ──────────────────────────────────────────────
+
+func TestSafeGet(t *testing.T) {
+	parts := []string{"a", "b", "c"}
+	if safeGet(parts, 0) != "a" {
+		t.Errorf("expected a")
+	}
+	if safeGet(parts, 2) != "c" {
+		t.Errorf("expected c")
+	}
+	if safeGet(parts, 5) != "" {
+		t.Errorf("expected empty string for out-of-range index")
+	}
+	if safeGet(parts, -1) != "" {
+		t.Errorf("expected empty string for negative index")
+	}
+}
+
+// ──────────────────────────────────────────────
+// parseGeneric — Apache format
+// ──────────────────────────────────────────────
+
+func TestParseGenericApache(t *testing.T) {
+	setupTestGlobals()
+
+	line := `192.168.1.100 - frank [10/Feb/2026:12:00:00 +0000] "GET /index.html HTTP/1.1" 200 1234 "http://example.com" "Mozilla/5.0"`
+
+	ip, class, ts, method, request, code, _, _ := parseGeneric(line)
+
+	if ip != "192.168.1.100" {
+		t.Errorf("ip: got %q, want %q", ip, "192.168.1.100")
+	}
+	if class != "192.168.1.100" {
+		t.Errorf("class: got %q, want %q", class, "192.168.1.100")
+	}
+	expectedTime := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+	if !ts.Equal(expectedTime) {
+		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
+	}
+	if method != "GET" {
+		t.Errorf("method: got %q, want %q", method, "GET")
+	}
+	if request != "/index.html" {
+		t.Errorf("request: got %q, want %q", request, "/index.html")
+	}
+	if code != 200 {
+		t.Errorf("code: got %d, want %d", code, 200)
+	}
+}
+
+func TestParseGenericApacheIPClassA(t *testing.T) {
+	setupTestGlobals()
+	classA := "A"
+	IPclass = &classA
+
+	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "POST /api HTTP/1.1" 201 512 "-" "curl/7.0"`
+	ip, class, _, method, request, code, _, _ := parseGeneric(line)
+
+	if ip != "10.20.30.40" {
+		t.Errorf("ip: got %q, want %q", ip, "10.20.30.40")
+	}
+	if class != "10" {
+		t.Errorf("class A: got %q, want %q", class, "10")
+	}
+	if method != "POST" {
+		t.Errorf("method: got %q, want %q", method, "POST")
+	}
+	if request != "/api" {
+		t.Errorf("request: got %q, want %q", request, "/api")
+	}
+	if code != 201 {
+		t.Errorf("code: got %d, want %d", code, 201)
+	}
+}
+
+func TestParseGenericApacheIPClassB(t *testing.T) {
+	setupTestGlobals()
+	classB := "B"
+	IPclass = &classB
+
+	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
+	_, class, _, _, _, _, _, _ := parseGeneric(line)
+
+	if class != "10.20" {
+		t.Errorf("class B: got %q, want %q", class, "10.20")
+	}
+}
+
+func TestParseGenericApacheIPClassC(t *testing.T) {
+	setupTestGlobals()
+	classC := "C"
+	IPclass = &classC
+
+	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
+	_, class, _, _, _, _, _, _ := parseGeneric(line)
+
+	if class != "10.20.30" {
+		t.Errorf("class C: got %q, want %q", class, "10.20.30")
+	}
+}
+
+func TestParseGenericApacheShortLine(t *testing.T) {
+	setupTestGlobals()
+
+	// short line — missing user-agent/referer; should not panic
+	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 512`
+	ip, _, _, method, _, code, _, _ := parseGeneric(line)
+
+	if ip != "192.168.1.1" {
+		t.Errorf("ip: got %q, want %q", ip, "192.168.1.1")
+	}
+	if method != "GET" {
+		t.Errorf("method: got %q, want %q", method, "GET")
+	}
+	if code != 200 {
+		t.Errorf("code: got %d, want %d", code, 200)
+	}
+}
+
+func TestParseGenericApacheBadTimestamp(t *testing.T) {
+	setupTestGlobals()
+
+	line := `192.168.1.1 - - [BADDATE +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
+	ip, _, _, _, _, code, _, _ := parseGeneric(line)
+
+	if ip != "192.168.1.1" {
+		t.Errorf("ip: got %q, want %q", ip, "192.168.1.1")
+	}
+	if code != 200 {
+		t.Errorf("code: got %d, want %d", code, 200)
+	}
+}
+
+func TestParseGenericApacheBadResponseCode(t *testing.T) {
+	setupTestGlobals()
+
+	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET /page HTTP/1.1" abc 100 "-" "-"`
+	_, _, _, _, _, code, _, _ := parseGeneric(line)
+
+	if code != 0 {
+		t.Errorf("code: got %d, want 0 (non-numeric)", code)
+	}
+}
+
+// With the new tokenizer the quoted request is one token, so for a line like:
+// "408 /timeout HTTP/1.1" the token is "408 /timeout HTTP/1.1".
+// method=word[0]="408", request=word[1]="/timeout", code=Atoi("-")→0.
+func TestParseGenericApache408Like(t *testing.T) {
+	setupTestGlobals()
+
+	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "408 /timeout HTTP/1.1" - 0 "-" "-"`
+	_, _, _, method, request, code, _, _ := parseGeneric(line)
+
+	if code != 0 {
+		t.Errorf("code: got %d, want 0", code)
+	}
+	if method != "408" {
+		t.Errorf("method: got %q, want %q", method, "408")
+	}
+	if request != "/timeout" {
+		t.Errorf("request: got %q, want %q", request, "/timeout")
+	}
+}
+
+func TestParseGenericApacheIPv6(t *testing.T) {
+	setupTestGlobals()
+	classA := "A"
+	IPclass = &classA
+
+	line := `2001:db8::1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
+	ip, class, _, _, _, _, _, _ := parseGeneric(line)
+
+	if ip != "2001:db8::1" {
+		t.Errorf("ip: got %q, want %q", ip, "2001:db8::1")
+	}
+	// non-4-part IP → class = full IP
+	if class != ip {
+		t.Errorf("class: got %q, want %q (full IP fallback)", class, ip)
+	}
+}
+
+// ──────────────────────────────────────────────
+// parseGeneric — apache_common format
+// ──────────────────────────────────────────────
+
+func TestParseGenericApacheCommon(t *testing.T) {
+	setupTestGlobals()
+	config.LogType = "apache_common"
+	config.LogFormat = apacheCommonLogFormat()
+
+	line := `192.168.1.1 - frank [10/Feb/2026:12:00:00 +0000] "GET /page HTTP/1.1" 200 1234`
+	ip, _, ts, method, request, code, _, ua := parseGeneric(line)
+
+	if ip != "192.168.1.1" {
+		t.Errorf("ip: got %q, want %q", ip, "192.168.1.1")
+	}
+	expectedTime := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+	if !ts.Equal(expectedTime) {
+		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
+	}
+	if method != "GET" {
+		t.Errorf("method: got %q, want %q", method, "GET")
+	}
+	if request != "/page" {
+		t.Errorf("request: got %q, want %q", request, "/page")
+	}
+	if code != 200 {
+		t.Errorf("code: got %d, want %d", code, 200)
+	}
+	if ua != "" {
+		t.Errorf("UA should be empty for apache_common, got %q", ua)
+	}
+}
+
+// ──────────────────────────────────────────────
+// parseGeneric — haproxy_http format
+// ──────────────────────────────────────────────
+
+func setupHAProxyConfig() {
+	setupTestGlobals()
+	config.LogType = "haproxy_http"
+	config.LogFormat = haproxyHTTPLogFormat()
+	log2Analyze.DateLayout = "02/Jan/2006:15:04:05.000"
+}
+
+// realHAProxyLine is a standard HAProxy 2.x HTTP log line (no syslog prefix,
+// no header captures). After quote-removal + space-split:
+//
+//	[0]=10.0.1.2:33313 [1]=[06/Feb/2009:12:14:14.655] [2]=http-in [3]=static/srv1
+//	[4]=10/0/30/69/109 [5]=200 [6]=2750 [7]=---- [8]=1/1/1/1/0 [9]=0/0
+//	[10]=GET [11]=/index.html [12]=HTTP/1.1
+const realHAProxyLine = `10.0.1.2:33313 [06/Feb/2009:12:14:14.655] http-in static/srv1 10/0/30/69/109 200 2750 ---- 1/1/1/1/0 0/0 "GET /index.html HTTP/1.1"`
+
+func TestParseGenericHAProxyBasic(t *testing.T) {
+	setupHAProxyConfig()
+
+	ip, _, ts, method, request, code, _, ua := parseGeneric(realHAProxyLine)
+
+	if ip != "10.0.1.2" {
+		t.Errorf("ip (port stripped): got %q, want %q", ip, "10.0.1.2")
+	}
+	expectedTime := time.Date(2009, 2, 6, 12, 14, 14, 655_000_000, time.UTC)
+	if !ts.Equal(expectedTime) {
+		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
+	}
+	if method != "GET" {
+		t.Errorf("method: got %q, want %q", method, "GET")
+	}
+	if request != "/index.html" {
+		t.Errorf("request: got %q, want %q", request, "/index.html")
+	}
+	if code != 200 {
+		t.Errorf("code: got %d, want %d", code, 200)
+	}
+	if ua != "" {
+		t.Errorf("UA should be empty for haproxy_http, got %q", ua)
+	}
+}
+
+func TestParseGenericHAProxyIPStripPort(t *testing.T) {
+	setupHAProxyConfig()
+
+	// verify port is stripped even for non-standard ports
+	line := `192.168.0.10:54321 [06/Feb/2009:12:14:14.655] http-in back/srv 0/0/0/10/10 404 0 ---- 0/0/0/0/0 0/0 "HEAD / HTTP/1.1"`
+	ip, _, _, _, _, code, _, _ := parseGeneric(line)
+
+	if ip != "192.168.0.10" {
+		t.Errorf("ip: got %q, want %q", ip, "192.168.0.10")
+	}
+	if code != 404 {
+		t.Errorf("code: got %d, want %d", code, 404)
+	}
+}
+
+func TestParseGenericApacheUserAgent(t *testing.T) {
+	setupTestGlobals()
+
+	// Single-word UA
+	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "http://ref.example.com" "curl/7.0"`
+	_, _, _, _, _, _, _, ua := parseGeneric(line)
+	if ua != "curl/7.0" {
+		t.Errorf("UA single-word: got %q, want %q", ua, "curl/7.0")
+	}
+
+	// Multi-word UA (spaces in value)
+	line2 := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"`
+	_, _, _, _, _, _, _, ua2 := parseGeneric(line2)
+	if ua2 != "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" {
+		t.Errorf("UA multi-word: got %q, want %q", ua2, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	}
+}
+
+func TestParseGenericApacheUserAgentDisabled(t *testing.T) {
+	setupTestGlobals()
+	config.LogFormat.UserAgent = -1
+
+	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "Mozilla/5.0"`
+	_, _, _, _, _, _, _, ua := parseGeneric(line)
+	if ua != "" {
+		t.Errorf("UA disabled: got %q, want empty string", ua)
+	}
+}
+
+// ──────────────────────────────────────────────
+// parseGeneric — Rosetta format
+// ──────────────────────────────────────────────
+
+func setupRosettaConfig() {
+	setupTestGlobals()
+	config.LogType = "rosetta"
+	config.LogFormat = rosettaLogFormat()
+}
+
+// realRosettaLine is the actual Rosetta log format used in production.
+// After quote-removal + space-split:
+//   [0]=129.132.181.72 [1]=129.132.181.112 [2]=- [3]=- [4]=[ts1 [5]=ts2]
+//   [6]=GET [7]=/mng/... [8]=HTTP/1.1 [9]=200 [10]=10240 [11]=45 …
+const realRosettaLine = `129.132.181.72 "129.132.181.112" - - [11/Feb/2026:00:00:17 +0100] GET /mng/localAuthentication.do HTTP/1.1 200 10240 45 910F66A0.ethz.ch:1801 0.045 https-exec-476 - "Uptime-Kuma/2.1.0"`
+
+func TestParseGenericRosettaBasic(t *testing.T) {
+	setupRosettaConfig()
+
+	ip, class, ts, method, request, code, rtime, _ := parseGeneric(realRosettaLine)
+
+	if ip != "129.132.181.112" {
+		t.Errorf("ip: got %q, want %q", ip, "129.132.181.112")
+	}
+	if class != "129.132.181.112" {
+		t.Errorf("class: got %q, want %q", class, "129.132.181.112")
+	}
+	expectedTime := time.Date(2026, 2, 11, 0, 0, 17, 0, time.FixedZone("", 3600))
+	if !ts.Equal(expectedTime) {
+		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
+	}
+	if method != "GET" {
+		t.Errorf("method: got %q, want %q", method, "GET")
+	}
+	if request != "/mng/localAuthentication.do" {
+		t.Errorf("request: got %q, want %q", request, "/mng/localAuthentication.do")
+	}
+	if code != 200 {
+		t.Errorf("code: got %d, want %d", code, 200)
+	}
+	if rtime != "45" {
+		t.Errorf("rtime: got %q, want %q", rtime, "45")
+	}
+}
+
+func TestParseGenericRosettaIPFallback(t *testing.T) {
+	setupRosettaConfig()
+
+	// position 1 is "-" → should fall back to position 0
+	line := `129.132.181.72 - - - [11/Feb/2026:00:00:17 +0100] GET /path HTTP/1.1 200 100 45 session - "Bot/1.0"`
+	ip, _, _, _, _, _, _, _ := parseGeneric(line)
+
+	if ip != "129.132.181.72" {
+		t.Errorf("ip fallback: got %q, want %q", ip, "129.132.181.72")
+	}
+}
+
+func TestParseGenericRosettaIPClassA(t *testing.T) {
+	setupRosettaConfig()
+	classA := "A"
+	IPclass = &classA
+
+	_, class, _, _, _, _, _, _ := parseGeneric(realRosettaLine)
+
+	if class != "129" {
+		t.Errorf("class A: got %q, want %q", class, "129")
+	}
+}
+
+func TestParseGenericRosettaIPClassB(t *testing.T) {
+	setupRosettaConfig()
+	classB := "B"
+	IPclass = &classB
+
+	_, class, _, _, _, _, _, _ := parseGeneric(realRosettaLine)
+
+	if class != "129.132" {
+		t.Errorf("class B: got %q, want %q", class, "129.132")
+	}
+}
+
+func TestParseGenericRosettaIPClassC(t *testing.T) {
+	setupRosettaConfig()
+	classC := "C"
+	IPclass = &classC
+
+	_, class, _, _, _, _, _, _ := parseGeneric(realRosettaLine)
+
+	if class != "129.132.181" {
+		t.Errorf("class C: got %q, want %q", class, "129.132.181")
+	}
+}
+
+func TestParseGenericRosettaUserAgent(t *testing.T) {
+	setupRosettaConfig()
+
+	_, _, _, _, _, _, _, ua := parseGeneric(realRosettaLine)
+	if ua != "Uptime-Kuma/2.1.0" {
+		t.Errorf("Rosetta UA: got %q, want %q", ua, "Uptime-Kuma/2.1.0")
+	}
 }
 
 // ──────────────────────────────────────────────
@@ -88,189 +494,11 @@ func TestBetween(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// parseApache
-// ──────────────────────────────────────────────
-
-func TestParseApache(t *testing.T) {
-	setupTestGlobals()
-
-	line := `192.168.1.100 - frank [10/Feb/2026:12:00:00 +0000] "GET /index.html HTTP/1.1" 200 1234 "http://example.com" "Mozilla/5.0"`
-
-	ip, class, ts, method, request, code, _ := parseApache(line)
-
-	if ip != "192.168.1.100" {
-		t.Errorf("ip: got %q, want %q", ip, "192.168.1.100")
-	}
-	// IPclass=D means class == full IP
-	if class != "192.168.1.100" {
-		t.Errorf("class: got %q, want %q", class, "192.168.1.100")
-	}
-	expectedTime := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
-	if !ts.Equal(expectedTime) {
-		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
-	}
-	if method != "GET" {
-		t.Errorf("method: got %q, want %q", method, "GET")
-	}
-	if request != "/index.html" {
-		t.Errorf("request: got %q, want %q", request, "/index.html")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
-}
-
-func TestParseApacheIPClassA(t *testing.T) {
-	setupTestGlobals()
-	classA := "A"
-	IPclass = &classA
-
-	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "POST /api HTTP/1.1" 201 512 "-" "curl/7.0"`
-	ip, class, _, method, request, code, _ := parseApache(line)
-
-	if ip != "10.20.30.40" {
-		t.Errorf("ip: got %q, want %q", ip, "10.20.30.40")
-	}
-	if class != "10" {
-		t.Errorf("class A: got %q, want %q", class, "10")
-	}
-	if method != "POST" {
-		t.Errorf("method: got %q, want %q", method, "POST")
-	}
-	if request != "/api" {
-		t.Errorf("request: got %q, want %q", request, "/api")
-	}
-	if code != 201 {
-		t.Errorf("code: got %d, want %d", code, 201)
-	}
-}
-
-func TestParseApacheIPClassB(t *testing.T) {
-	setupTestGlobals()
-	classB := "B"
-	IPclass = &classB
-
-	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseApache(line)
-
-	if class != "10.20" {
-		t.Errorf("class B: got %q, want %q", class, "10.20")
-	}
-}
-
-func TestParseApacheIPClassC(t *testing.T) {
-	setupTestGlobals()
-	classC := "C"
-	IPclass = &classC
-
-	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseApache(line)
-
-	if class != "10.20.30" {
-		t.Errorf("class C: got %q, want %q", class, "10.20.30")
-	}
-}
-
-func TestParseApacheShortLine(t *testing.T) {
-	setupTestGlobals()
-
-	// a line missing the user-agent and referer — the padding logic should prevent a crash
-	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 512`
-	ip, _, _, method, _, code, _ := parseApache(line)
-
-	if ip != "192.168.1.1" {
-		t.Errorf("ip: got %q, want %q", ip, "192.168.1.1")
-	}
-	if method != "GET" {
-		t.Errorf("method: got %q, want %q", method, "GET")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
-}
-
-// ──────────────────────────────────────────────
-// parseApacheAtmire
-// ──────────────────────────────────────────────
-
-func TestParseApacheAtmire(t *testing.T) {
-	setupTestGlobals()
-
-	line := `172.16.0.1 - admin [10/Feb/2026:08:30:00 +0000] "GET /xmlui/handle/123 HTTP/1.1" 200 5678 "http://ref.example.com" "Mozilla/5.0"`
-
-	ip, class, ts, method, request, code, _ := parseApacheAtmire(line)
-
-	if ip != "172.16.0.1" {
-		t.Errorf("ip: got %q, want %q", ip, "172.16.0.1")
-	}
-	if class != "172.16.0.1" {
-		t.Errorf("class: got %q, want %q", class, "172.16.0.1")
-	}
-	expectedTime := time.Date(2026, 2, 10, 8, 30, 0, 0, time.UTC)
-	if !ts.Equal(expectedTime) {
-		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
-	}
-	if method != "GET" {
-		t.Errorf("method: got %q, want %q", method, "GET")
-	}
-	if request != "/xmlui/handle/123" {
-		t.Errorf("request: got %q, want %q", request, "/xmlui/handle/123")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
-}
-
-// ──────────────────────────────────────────────
-// parseRosetta
-// ──────────────────────────────────────────────
-
-func TestParseRosetta(t *testing.T) {
-	setupTestGlobals()
-
-	// rosetta format: extra field before IP at position 0, real IP at 1 if pos-1 is "-"
-	line := `server1 10.0.0.5 - admin [10/Feb/2026:09:00:00 +0000] "DELETE /resource/42 HTTP/1.1" 204 0 "-" "HTTPie/3.0"`
-
-	ip, _, ts, method, request, code, _ := parseRosetta(line)
-
-	if ip != "10.0.0.5" {
-		t.Errorf("ip: got %q, want %q", ip, "10.0.0.5")
-	}
-	expectedTime := time.Date(2026, 2, 10, 9, 0, 0, 0, time.UTC)
-	if !ts.Equal(expectedTime) {
-		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
-	}
-	if method != "DELETE" {
-		t.Errorf("method: got %q, want %q", method, "DELETE")
-	}
-	if request != "/resource/42" {
-		t.Errorf("request: got %q, want %q", request, "/resource/42")
-	}
-	if code != 204 {
-		t.Errorf("code: got %d, want %d", code, 204)
-	}
-}
-
-func TestParseRosettaDashFallback(t *testing.T) {
-	setupTestGlobals()
-
-	// when parts[1] is "-", IP comes from parts[0]
-	line := `10.0.0.5 - - admin [10/Feb/2026:09:00:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"`
-
-	ip, _, _, _, _, _, _ := parseRosetta(line)
-
-	if ip != "10.0.0.5" {
-		t.Errorf("ip: got %q, want %q", ip, "10.0.0.5")
-	}
-}
-
-// ──────────────────────────────────────────────
-// createEntry (dispatch to the right parser)
+// createEntry
 // ──────────────────────────────────────────────
 
 func TestCreateEntryApache(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 
 	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET /test HTTP/1.1" 404 0 "-" "-"`
 	entry := createEntry(line)
@@ -289,18 +517,19 @@ func TestCreateEntryApache(t *testing.T) {
 	}
 }
 
-func TestCreateEntryApacheAtmire(t *testing.T) {
-	setupTestGlobals()
-	config.LogType = "apache_atmire"
+func TestCreateEntryRosetta(t *testing.T) {
+	setupRosettaConfig()
 
-	line := `10.0.0.1 - - [10/Feb/2026:12:00:00 +0000] "POST /upload HTTP/1.1" 201 999 "-" "-"`
-	entry := createEntry(line)
+	entry := createEntry(realRosettaLine)
 
-	if entry.IP != "10.0.0.1" {
-		t.Errorf("IP: got %q, want %q", entry.IP, "10.0.0.1")
+	if entry.IP != "129.132.181.112" {
+		t.Errorf("IP: got %q, want %q", entry.IP, "129.132.181.112")
 	}
-	if entry.Code != 201 {
-		t.Errorf("Code: got %d, want %d", entry.Code, 201)
+	if entry.Code != 200 {
+		t.Errorf("Code: got %d, want %d", entry.Code, 200)
+	}
+	if entry.Method != "GET" {
+		t.Errorf("Method: got %q, want %q", entry.Method, "GET")
 	}
 }
 
@@ -313,7 +542,6 @@ func TestCreateTimeRange(t *testing.T) {
 
 	start, end := createTimeRange("14:00", 5, "2026-02-10")
 
-	// end should be 14:00 on 2026-02-10 in local tz
 	if end.Hour() != 14 || end.Minute() != 0 {
 		t.Errorf("end time: got %v, want 14:00", end.Format("15:04"))
 	}
@@ -321,7 +549,6 @@ func TestCreateTimeRange(t *testing.T) {
 		t.Errorf("end date: got %v, want 2026-02-10", end.Format("2006-01-02"))
 	}
 
-	// start should be 5 minutes before end
 	diff := end.Sub(start)
 	if diff != 5*time.Minute {
 		t.Errorf("time range: got %v, want %v", diff, 5*time.Minute)
@@ -333,11 +560,9 @@ func TestCreateTimeRangeZero(t *testing.T) {
 
 	start, end := createTimeRange("10:00", 0, "2026-02-10")
 
-	// with timerange 0, start should be zero value
 	if !start.IsZero() {
 		t.Errorf("start should be zero value, got %v", start)
 	}
-	// end should still be set
 	if end.Hour() != 10 || end.Minute() != 0 {
 		t.Errorf("end time: got %v, want 10:00", end.Format("15:04"))
 	}
@@ -351,46 +576,6 @@ func TestCreateTimeRangeLarger(t *testing.T) {
 	diff := end.Sub(start)
 	if diff != 60*time.Minute {
 		t.Errorf("time range: got %v, want %v", diff, 60*time.Minute)
-	}
-}
-
-// ──────────────────────────────────────────────
-// fillPlaceholderLut
-// ──────────────────────────────────────────────
-
-func TestFillPlaceholderLut(t *testing.T) {
-	setupTestGlobals()
-	placeholderLut = make(map[string]int)
-
-	fillPlaceholderLut()
-
-	// With the default log format, %t is unquoted so it expands to ts1/ts2.
-	// "%r" is quoted so strings.Fields keeps it as one token (no m/r/p expansion).
-	expectedKeys := []string{"%h", "ts1", "ts2", "%>s"}
-	for _, key := range expectedKeys {
-		if _, ok := placeholderLut[key]; !ok {
-			t.Errorf("expected key %q in placeholderLut, but not found. lut = %v", key, placeholderLut)
-		}
-	}
-
-	if placeholderLut["%h"] != 0 {
-		t.Errorf("%%h position: got %d, want 0", placeholderLut["%h"])
-	}
-}
-
-func TestFillPlaceholderLutUnquoted(t *testing.T) {
-	setupTestGlobals()
-	placeholderLut = make(map[string]int)
-	// when %r is unquoted, it should expand to m, r, p
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-
-	fillPlaceholderLut()
-
-	expectedKeys := []string{"%h", "ts1", "ts2", "m", "r", "p", "%>s"}
-	for _, key := range expectedKeys {
-		if _, ok := placeholderLut[key]; !ok {
-			t.Errorf("expected key %q in placeholderLut, but not found. lut = %v", key, placeholderLut)
-		}
 	}
 }
 
@@ -414,7 +599,6 @@ func TestGetTopIPs(t *testing.T) {
 
 	topIPs, codeCounts := l.GetTopIPs()
 
-	// should return all 3 IPs (less than topIPsCount=5)
 	if len(topIPs) != 3 {
 		t.Errorf("expected 3 top IPs, got %d", len(topIPs))
 	}
@@ -428,7 +612,6 @@ func TestGetTopIPs(t *testing.T) {
 		t.Errorf("3.3.3.3 count: got %d, want 1", topIPs["3.3.3.3"])
 	}
 
-	// code counts
 	if codeCounts[200] != 4 {
 		t.Errorf("code 200 count: got %d, want 4", codeCounts[200])
 	}
@@ -462,7 +645,6 @@ func TestGetTopIPsLimitsToN(t *testing.T) {
 	if len(topIPs) != 2 {
 		t.Errorf("expected 2 top IPs, got %d: %v", len(topIPs), topIPs)
 	}
-	// should contain the two highest: 1.1.1.1 (3) and 2.2.2.2 (2)
 	if _, ok := topIPs["1.1.1.1"]; !ok {
 		t.Error("expected 1.1.1.1 in top IPs")
 	}
@@ -499,7 +681,6 @@ func TestGetTopIPsZeroN(t *testing.T) {
 
 	topIPs, _ := l.GetTopIPs()
 
-	// when topIPsCount=0, entries > 0 && *topIPsCount <= 0, so entries stays at len(ipCount)
 	if len(topIPs) != 2 {
 		t.Errorf("expected 2 IPs (all), got %d", len(topIPs))
 	}
@@ -508,7 +689,6 @@ func TestGetTopIPsZeroN(t *testing.T) {
 func TestGetTopIPsUsesClass(t *testing.T) {
 	setupTestGlobals()
 
-	// entries with different IPs but same class should be grouped
 	l := Log2Analyze{
 		Entries: []LogEntry{
 			{IP: "10.0.0.1", Class: "10.0.0", Code: 200},
@@ -525,6 +705,273 @@ func TestGetTopIPsUsesClass(t *testing.T) {
 	}
 	if topIPs["20.0.0"] != 1 {
 		t.Errorf("class 20.0.0 count: got %d, want 1", topIPs["20.0.0"])
+	}
+}
+
+// ──────────────────────────────────────────────
+// GetTopLongRequests
+// (RTime strings are in ms; Unit=0 falls back to /1000)
+// ──────────────────────────────────────────────
+
+func TestGetTopLongRequestsBasic(t *testing.T) {
+	setupTestGlobals()
+
+	l := Log2Analyze{
+		Entries: []LogEntry{
+			{Class: "1.1.1.1", RTime: "2500"}, // 2.5 s
+			{Class: "2.2.2.2", RTime: "1000"}, // 1.0 s
+			{Class: "3.3.3.3", RTime: "500"},  // 0.5 s
+		},
+	}
+
+	got := l.GetTopLongRequests()
+
+	if len(got) != 3 {
+		t.Errorf("expected 3 entries, got %d", len(got))
+	}
+	if got["1.1.1.1"] != 2.5 {
+		t.Errorf("1.1.1.1: got %v, want 2.5", got["1.1.1.1"])
+	}
+	if got["2.2.2.2"] != 1.0 {
+		t.Errorf("2.2.2.2: got %v, want 1.0", got["2.2.2.2"])
+	}
+	if got["3.3.3.3"] != 0.5 {
+		t.Errorf("3.3.3.3: got %v, want 0.5", got["3.3.3.3"])
+	}
+}
+
+func TestGetTopLongRequestsKeepsMaxPerClass(t *testing.T) {
+	setupTestGlobals()
+
+	l := Log2Analyze{
+		Entries: []LogEntry{
+			{Class: "1.1.1.1", RTime: "3000"}, // 3.0 s
+			{Class: "1.1.1.1", RTime: "8000"}, // 8.0 s — max
+			{Class: "1.1.1.1", RTime: "1000"}, // 1.0 s
+		},
+	}
+
+	got := l.GetTopLongRequests()
+
+	if len(got) != 1 {
+		t.Errorf("expected 1 class, got %d", len(got))
+	}
+	if got["1.1.1.1"] != 8.0 {
+		t.Errorf("expected max of 8.0 s, got %v", got["1.1.1.1"])
+	}
+}
+
+func TestGetTopLongRequestsLimitsToN(t *testing.T) {
+	setupTestGlobals()
+	n := 2
+	topIPsCount = &n
+
+	l := Log2Analyze{
+		Entries: []LogEntry{
+			{Class: "1.1.1.1", RTime: "9000"},
+			{Class: "2.2.2.2", RTime: "5000"},
+			{Class: "3.3.3.3", RTime: "1000"},
+			{Class: "4.4.4.4", RTime: "100"},
+		},
+	}
+
+	got := l.GetTopLongRequests()
+
+	if len(got) != 2 {
+		t.Errorf("expected 2 entries (limit N=2), got %d", len(got))
+	}
+	if _, ok := got["1.1.1.1"]; !ok {
+		t.Error("expected 1.1.1.1 (slowest) in result")
+	}
+	if _, ok := got["2.2.2.2"]; !ok {
+		t.Error("expected 2.2.2.2 (second slowest) in result")
+	}
+}
+
+func TestGetTopLongRequestsEmpty(t *testing.T) {
+	setupTestGlobals()
+
+	l := Log2Analyze{Entries: []LogEntry{}}
+	got := l.GetTopLongRequests()
+
+	if len(got) != 0 {
+		t.Errorf("expected empty result for empty entries, got %d", len(got))
+	}
+}
+
+func TestGetTopLongRequestsSkipsEmptyRTime(t *testing.T) {
+	setupTestGlobals()
+
+	l := Log2Analyze{
+		Entries: []LogEntry{
+			{Class: "1.1.1.1", RTime: ""},
+			{Class: "2.2.2.2", RTime: "2000"},
+		},
+	}
+
+	got := l.GetTopLongRequests()
+
+	if _, ok := got["1.1.1.1"]; ok {
+		t.Error("1.1.1.1 with empty RTime should not appear in result")
+	}
+	if got["2.2.2.2"] != 2.0 {
+		t.Errorf("2.2.2.2: got %v, want 2.0", got["2.2.2.2"])
+	}
+}
+
+func TestGetTopLongRequestsSkipsInvalidRTime(t *testing.T) {
+	setupTestGlobals()
+
+	l := Log2Analyze{
+		Entries: []LogEntry{
+			{Class: "1.1.1.1", RTime: "notanumber"},
+			{Class: "2.2.2.2", RTime: "3000"},
+		},
+	}
+
+	got := l.GetTopLongRequests()
+
+	if _, ok := got["1.1.1.1"]; ok {
+		t.Error("1.1.1.1 with invalid RTime should not appear in result")
+	}
+	if got["2.2.2.2"] != 3.0 {
+		t.Errorf("2.2.2.2: got %v, want 3.0", got["2.2.2.2"])
+	}
+}
+
+func TestGetTopLongRequestsZeroN(t *testing.T) {
+	setupTestGlobals()
+	n := 0
+	topIPsCount = &n
+
+	l := Log2Analyze{
+		Entries: []LogEntry{
+			{Class: "1.1.1.1", RTime: "1000"},
+			{Class: "2.2.2.2", RTime: "2000"},
+		},
+	}
+
+	got := l.GetTopLongRequests()
+
+	if len(got) != 2 {
+		t.Errorf("expected 2 entries when N=0 (all), got %d", len(got))
+	}
+}
+
+// ──────────────────────────────────────────────
+// GetTopLongRequests — Rosetta Unit=1000
+// ──────────────────────────────────────────────
+
+func TestGetTopLongRequestsRosettaUnit(t *testing.T) {
+	setupRosettaConfig()
+
+	// Rosetta stores RTime in ms (Unit=1000)
+	l := Log2Analyze{
+		Entries: []LogEntry{
+			{Class: "1.1.1.1", RTime: "45"},  // 45ms → 0.045 s
+			{Class: "2.2.2.2", RTime: "910"}, // 910ms → 0.91 s
+		},
+	}
+
+	got := l.GetTopLongRequests()
+
+	if got["1.1.1.1"] != 0.045 {
+		t.Errorf("1.1.1.1: got %v, want 0.045", got["1.1.1.1"])
+	}
+	if got["2.2.2.2"] != 0.91 {
+		t.Errorf("2.2.2.2: got %v, want 0.91", got["2.2.2.2"])
+	}
+}
+
+// ──────────────────────────────────────────────
+// WriteResponseTimeFile
+// ──────────────────────────────────────────────
+
+func TestWriteResponseTimeFileCreatesFile(t *testing.T) {
+	setupTestGlobals()
+	dir := t.TempDir()
+	config.OutputFolder = dir + "/"
+
+	l := Log2Analyze{
+		DateLayout: "02/Jan/2006:15:04:05 -0700",
+		Entries: []LogEntry{
+			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC), Method: "GET", Request: "/slow", Code: 200, RTime: "5000"},
+		},
+	}
+
+	topLongRequests := map[string]float64{"1.1.1.1": 5.0}
+	l.WriteResponseTimeFile(topLongRequests)
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), "response_times-") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected response_times-*.txt to be created")
+	}
+}
+
+func TestWriteResponseTimeFileContent(t *testing.T) {
+	setupTestGlobals()
+	dir := t.TempDir()
+	config.OutputFolder = dir + "/"
+
+	ts := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+	l := Log2Analyze{
+		DateLayout: "02/Jan/2006:15:04:05 -0700",
+		Entries: []LogEntry{
+			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: ts, Method: "GET", Request: "/slow", Code: 200, RTime: "5000"},
+			{IP: "2.2.2.2", Class: "2.2.2.2", TimeStamp: ts, Method: "POST", Request: "/other", Code: 201, RTime: "100"},
+		},
+	}
+
+	topLongRequests := map[string]float64{"1.1.1.1": 5.0}
+	l.WriteResponseTimeFile(topLongRequests)
+
+	files, _ := os.ReadDir(dir)
+	var content string
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), "response_times-") {
+			b, err := os.ReadFile(dir + "/" + f.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			content = string(b)
+		}
+	}
+
+	if !strings.Contains(content, "1.1.1.1") {
+		t.Errorf("file should contain 1.1.1.1, got: %s", content)
+	}
+	if !strings.Contains(content, "/slow") {
+		t.Errorf("file should contain the matching log entry request, got: %s", content)
+	}
+	if strings.Contains(content, "/other") {
+		t.Errorf("file should NOT contain entries for IPs not in topLongRequests, got: %s", content)
+	}
+}
+
+func TestWriteResponseTimeFileEmptyMap(t *testing.T) {
+	setupTestGlobals()
+	dir := t.TempDir()
+	config.OutputFolder = dir + "/"
+
+	l := Log2Analyze{
+		DateLayout: "02/Jan/2006:15:04:05 -0700",
+		Entries:    []LogEntry{},
+	}
+
+	l.WriteResponseTimeFile(map[string]float64{})
+
+	files, _ := os.ReadDir(dir)
+	if len(files) != 1 {
+		t.Errorf("expected 1 file (empty response_times file), got %d", len(files))
 	}
 }
 
@@ -547,7 +994,6 @@ func writeTempLogFile(t *testing.T, content string) string {
 
 func TestRetrieveEntriesWholeFile(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 
 	logContent := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET /page1 HTTP/1.1" 200 100 "-" "-"
 192.168.1.1 - - [10/Feb/2026:12:01:00 +0000] "GET /page2 HTTP/1.1" 200 200 "-" "-"
@@ -562,7 +1008,6 @@ func TestRetrieveEntriesWholeFile(t *testing.T) {
 	}
 	log2Analyze = l
 
-	// timerange=0 means whole file
 	l.RetrieveEntries("12:05", 0)
 
 	if l.EntryCount != 3 {
@@ -572,9 +1017,7 @@ func TestRetrieveEntriesWholeFile(t *testing.T) {
 
 func TestRetrieveEntriesWithTimeRange(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 
-	// createTimeRange uses the local timezone, so the log entries must use it too
 	tz := time.Now().Format("-0700")
 
 	logContent := fmt.Sprintf(
@@ -594,10 +1037,8 @@ func TestRetrieveEntriesWithTimeRange(t *testing.T) {
 	}
 	log2Analyze = l
 
-	// 5 minute range ending at 12:00, so 11:55 - 12:00
 	l.RetrieveEntries("12:00", 5)
 
-	// should include 11:56 and 11:58 but not 11:50 (before range) or 12:01 (after range)
 	if l.EntryCount != 2 {
 		t.Errorf("EntryCount: got %d, want 2", l.EntryCount)
 		for _, e := range l.Entries {
@@ -608,7 +1049,6 @@ func TestRetrieveEntriesWithTimeRange(t *testing.T) {
 
 func TestRetrieveEntriesIPFilter(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 	filterIP := "192.168.1.1"
 	ipAddress = &filterIP
 
@@ -639,7 +1079,6 @@ func TestRetrieveEntriesIPFilter(t *testing.T) {
 
 func TestRetrieveEntriesNotIPFilter(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 	excludeIP := "10.0.0.1"
 	notIP = &excludeIP
 
@@ -670,7 +1109,6 @@ func TestRetrieveEntriesNotIPFilter(t *testing.T) {
 
 func TestRetrieveEntriesResponseCodeFilter(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 	rc := 404
 	responseCode = &rc
 
@@ -696,7 +1134,6 @@ func TestRetrieveEntriesResponseCodeFilter(t *testing.T) {
 
 func TestRetrieveEntriesQueryStringFilter(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 
 	logContent := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET /api/users HTTP/1.1" 200 100 "-" "-"
 192.168.1.1 - - [10/Feb/2026:12:01:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"
@@ -706,9 +1143,9 @@ func TestRetrieveEntriesQueryStringFilter(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	l := &Log2Analyze{
-		FileName:     tmpFile,
-		DateLayout:   "02/Jan/2006:15:04:05 -0700",
-		QueryString:  "/api",
+		FileName:    tmpFile,
+		DateLayout:  "02/Jan/2006:15:04:05 -0700",
+		QueryString: "/api",
 	}
 	log2Analyze = l
 
@@ -719,516 +1156,8 @@ func TestRetrieveEntriesQueryStringFilter(t *testing.T) {
 	}
 }
 
-// ──────────────────────────────────────────────
-// WriteOutputFiles (smoke test - just verify no crash)
-// ──────────────────────────────────────────────
-
-func TestWriteOutputFilesCombined(t *testing.T) {
-	setupTestGlobals()
-	cb := true
-	combinedFile = &cb
-	tr := 5
-	timeRange = &tr
-	config.OutputFolder = os.TempDir() + "/"
-
-	l := Log2Analyze{
-		FileName:   "test.log",
-		DateLayout: "02/Jan/2006:15:04:05 -0700",
-		StartTime:  time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2026, 2, 10, 12, 5, 0, 0, time.UTC),
-		EntryCount: 2,
-		Entries: []LogEntry{
-			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: time.Date(2026, 2, 10, 12, 1, 0, 0, time.UTC), Method: "GET", Request: "/a", Code: 200},
-			{IP: "2.2.2.2", Class: "2.2.2.2", TimeStamp: time.Date(2026, 2, 10, 12, 2, 0, 0, time.UTC), Method: "POST", Request: "/b", Code: 201},
-		},
-	}
-
-	topIPs := map[string]int{"1.1.1.1": 1, "2.2.2.2": 1}
-	codeCounts := map[int]int{200: 1, 201: 1}
-
-	// should not panic
-	l.WriteOutputFiles(topIPs, codeCounts)
-}
-
-func TestWriteOutputFilesSeparate(t *testing.T) {
-	setupTestGlobals()
-	cb := false
-	combinedFile = &cb
-	config.OutputFolder = os.TempDir() + "/"
-
-	l := Log2Analyze{
-		FileName:   "test.log",
-		DateLayout: "02/Jan/2006:15:04:05 -0700",
-		EntryCount: 1,
-		Entries: []LogEntry{
-			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: time.Date(2026, 2, 10, 12, 1, 0, 0, time.UTC), Method: "GET", Request: "/x", Code: 200},
-		},
-	}
-
-	topIPs := map[string]int{"1.1.1.1": 1}
-	codeCounts := map[int]int{200: 1}
-
-	// should not panic
-	l.WriteOutputFiles(topIPs, codeCounts)
-}
-
-// ──────────────────────────────────────────────
-// parseLog (logfmt format)
-// ──────────────────────────────────────────────
-
-func TestParseLog(t *testing.T) {
-	setupTestGlobals()
-	// parseLog relies on the LUT which needs unquoted %r to expand into m/r/p
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	// line without surrounding quotes for the request part (matches the unquoted format)
-	line := `172.16.0.55 - user [10/Feb/2026:15:30:00 +0000] PUT /update HTTP/1.1 200 512`
-
-	ip, class, ts, method, request, code, _ := parseLog(line)
-
-	if ip != "172.16.0.55" {
-		t.Errorf("ip: got %q, want %q", ip, "172.16.0.55")
-	}
-	if class != "172.16.0.55" {
-		t.Errorf("class: got %q, want %q", class, "172.16.0.55")
-	}
-	expectedTime := time.Date(2026, 2, 10, 15, 30, 0, 0, time.UTC)
-	if !ts.Equal(expectedTime) {
-		t.Errorf("timestamp: got %v, want %v", ts, expectedTime)
-	}
-	if method != "PUT" {
-		t.Errorf("method: got %q, want %q", method, "PUT")
-	}
-	if request != "/update" {
-		t.Errorf("request: got %q, want %q", request, "/update")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
-}
-
-// ──────────────────────────────────────────────
-// parseApacheAtmire — IP class branches
-// ──────────────────────────────────────────────
-
-func TestParseApacheAtmireIPClassA(t *testing.T) {
-	setupTestGlobals()
-	classA := "A"
-	IPclass = &classA
-
-	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseApacheAtmire(line)
-
-	if class != "10" {
-		t.Errorf("class A: got %q, want %q", class, "10")
-	}
-}
-
-func TestParseApacheAtmireIPClassB(t *testing.T) {
-	setupTestGlobals()
-	classB := "B"
-	IPclass = &classB
-
-	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseApacheAtmire(line)
-
-	if class != "10.20" {
-		t.Errorf("class B: got %q, want %q", class, "10.20")
-	}
-}
-
-func TestParseApacheAtmireIPClassC(t *testing.T) {
-	setupTestGlobals()
-	classC := "C"
-	IPclass = &classC
-
-	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseApacheAtmire(line)
-
-	if class != "10.20.30" {
-		t.Errorf("class C: got %q, want %q", class, "10.20.30")
-	}
-}
-
-// ──────────────────────────────────────────────
-// parseRosetta — IP class branches
-// ──────────────────────────────────────────────
-
-func TestParseRosettaIPClassA(t *testing.T) {
-	setupTestGlobals()
-	classA := "A"
-	IPclass = &classA
-
-	line := `server1 10.20.30.40 - admin [10/Feb/2026:09:00:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseRosetta(line)
-
-	if class != "10" {
-		t.Errorf("class A: got %q, want %q", class, "10")
-	}
-}
-
-func TestParseRosettaIPClassB(t *testing.T) {
-	setupTestGlobals()
-	classB := "B"
-	IPclass = &classB
-
-	line := `server1 10.20.30.40 - admin [10/Feb/2026:09:00:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseRosetta(line)
-
-	if class != "10.20" {
-		t.Errorf("class B: got %q, want %q", class, "10.20")
-	}
-}
-
-func TestParseRosettaIPClassC(t *testing.T) {
-	setupTestGlobals()
-	classC := "C"
-	IPclass = &classC
-
-	line := `server1 10.20.30.40 - admin [10/Feb/2026:09:00:00 +0000] "GET /page HTTP/1.1" 200 100 "-" "-"`
-	_, class, _, _, _, _, _ := parseRosetta(line)
-
-	if class != "10.20.30" {
-		t.Errorf("class C: got %q, want %q", class, "10.20.30")
-	}
-}
-
-// ──────────────────────────────────────────────
-// parseLog — IP class branches
-// ──────────────────────────────────────────────
-
-func TestParseLogIPClassA(t *testing.T) {
-	setupTestGlobals()
-	classA := "A"
-	IPclass = &classA
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `10.20.30.40 - user [10/Feb/2026:15:30:00 +0000] GET /page HTTP/1.1 200 512`
-	_, class, _, _, _, _, _ := parseLog(line)
-
-	if class != "10" {
-		t.Errorf("class A: got %q, want %q", class, "10")
-	}
-}
-
-func TestParseLogIPClassB(t *testing.T) {
-	setupTestGlobals()
-	classB := "B"
-	IPclass = &classB
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `10.20.30.40 - user [10/Feb/2026:15:30:00 +0000] GET /page HTTP/1.1 200 512`
-	_, class, _, _, _, _, _ := parseLog(line)
-
-	if class != "10.20" {
-		t.Errorf("class B: got %q, want %q", class, "10.20")
-	}
-}
-
-func TestParseLogIPClassC(t *testing.T) {
-	setupTestGlobals()
-	classC := "C"
-	IPclass = &classC
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `10.20.30.40 - user [10/Feb/2026:15:30:00 +0000] GET /page HTTP/1.1 200 512`
-	_, class, _, _, _, _, _ := parseLog(line)
-
-	if class != "10.20.30" {
-		t.Errorf("class C: got %q, want %q", class, "10.20.30")
-	}
-}
-
-// ──────────────────────────────────────────────
-// Response code 408 workaround (parts[8]/[9] == "-")
-// ──────────────────────────────────────────────
-
-func TestParseApache408Workaround(t *testing.T) {
-	setupTestGlobals()
-
-	// parts[8] is "-", so code comes from parts[6] and request from parts[5]
-	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "408 /timeout HTTP/1.1" - 0 "-" "-"`
-	_, _, _, method, request, code, _ := parseApache(line)
-
-	// When parts[8]=="-", codestring=parts[6]="/timeout", request=parts[5]="408"
-	// Atoi("/timeout") fails → code=0
-	if code != 0 {
-		t.Errorf("code: got %d, want 0 (unparseable swap)", code)
-	}
-	// request becomes parts[5] which is "408"
-	if request != "408" {
-		t.Errorf("request: got %q, want %q", request, "408")
-	}
-	_ = method
-}
-
-func TestParseApacheAtmire408Workaround(t *testing.T) {
-	setupTestGlobals()
-
-	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "408 /timeout HTTP/1.1" - 0 "-" "-"`
-	_, _, _, _, request, code, _ := parseApacheAtmire(line)
-
-	if code != 0 {
-		t.Errorf("code: got %d, want 0 (unparseable swap)", code)
-	}
-	if request != "408" {
-		t.Errorf("request: got %q, want %q", request, "408")
-	}
-}
-
-func TestParseRosetta408Workaround(t *testing.T) {
-	setupTestGlobals()
-
-	// rosetta: parts[9] is "-", so codestring=parts[7], request=parts[6]
-	line := `server1 10.0.0.5 - admin [10/Feb/2026:09:00:00 +0000] "408 /timeout HTTP/1.1" - 0 "-" "-"`
-	_, _, _, _, request, code, _ := parseRosetta(line)
-
-	if code != 0 {
-		t.Errorf("code: got %d, want 0 (unparseable swap)", code)
-	}
-	if request != "408" {
-		t.Errorf("request: got %q, want %q", request, "408")
-	}
-}
-
-// ──────────────────────────────────────────────
-// Bad / unparseable response code (strconv.Atoi error → code=0)
-// ──────────────────────────────────────────────
-
-func TestParseApacheBadResponseCode(t *testing.T) {
-	setupTestGlobals()
-
-	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET /page HTTP/1.1" abc 100 "-" "-"`
-	_, _, _, _, _, code, _ := parseApache(line)
-
-	if code != 0 {
-		t.Errorf("code: got %d, want 0 (non-numeric)", code)
-	}
-}
-
-func TestParseApacheAtmireBadResponseCode(t *testing.T) {
-	setupTestGlobals()
-
-	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET /page HTTP/1.1" xyz 100 "-" "-"`
-	_, _, _, _, _, code, _ := parseApacheAtmire(line)
-
-	if code != 0 {
-		t.Errorf("code: got %d, want 0 (non-numeric)", code)
-	}
-}
-
-func TestParseRosettaBadResponseCode(t *testing.T) {
-	setupTestGlobals()
-
-	line := `server1 10.0.0.5 - admin [10/Feb/2026:09:00:00 +0000] "GET /page HTTP/1.1" bad 100 "-" "-"`
-	_, _, _, _, _, code, _ := parseRosetta(line)
-
-	if code != 0 {
-		t.Errorf("code: got %d, want 0 (non-numeric)", code)
-	}
-}
-
-func TestParseLogBadResponseCode(t *testing.T) {
-	setupTestGlobals()
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `172.16.0.55 - user [10/Feb/2026:15:30:00 +0000] GET /page HTTP/1.1 notanumber 512`
-	_, _, _, _, _, code, _ := parseLog(line)
-
-	if code != 0 {
-		t.Errorf("code: got %d, want 0 (non-numeric)", code)
-	}
-}
-
-// ──────────────────────────────────────────────
-// Non-4-part IP addresses (IPv6-style → class = ip)
-// ──────────────────────────────────────────────
-
-func TestParseApacheIPv6Fallback(t *testing.T) {
-	setupTestGlobals()
-	classA := "A"
-	IPclass = &classA
-
-	line := `2001:db8::1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
-	ip, class, _, _, _, _, _ := parseApache(line)
-
-	if ip != "2001:db8::1" {
-		t.Errorf("ip: got %q, want %q", ip, "2001:db8::1")
-	}
-	// non-4-part IP → class falls back to full IP
-	if class != ip {
-		t.Errorf("class: got %q, want %q (full IP fallback)", class, ip)
-	}
-}
-
-func TestParseApacheAtmireIPv6Fallback(t *testing.T) {
-	setupTestGlobals()
-	classA := "A"
-	IPclass = &classA
-
-	line := `2001:db8::1 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
-	ip, class, _, _, _, _, _ := parseApacheAtmire(line)
-
-	if class != ip {
-		t.Errorf("class: got %q, want %q (full IP fallback)", class, ip)
-	}
-}
-
-func TestParseLogIPv6Fallback(t *testing.T) {
-	setupTestGlobals()
-	classA := "A"
-	IPclass = &classA
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `2001:db8::1 - user [10/Feb/2026:15:30:00 +0000] GET /page HTTP/1.1 200 512`
-	ip, class, _, _, _, _, _ := parseLog(line)
-
-	if class != ip {
-		t.Errorf("class: got %q, want %q (full IP fallback)", class, ip)
-	}
-}
-
-// ──────────────────────────────────────────────
-// createEntry — rosetta and logfmt dispatch
-// ──────────────────────────────────────────────
-
-func TestCreateEntryRosetta(t *testing.T) {
-	setupTestGlobals()
-	config.LogType = "rosetta"
-
-	line := `server1 10.0.0.5 - admin [10/Feb/2026:09:00:00 +0000] "GET /resource HTTP/1.1" 200 100 "-" "-"`
-	entry := createEntry(line)
-
-	if entry.IP != "10.0.0.5" {
-		t.Errorf("IP: got %q, want %q", entry.IP, "10.0.0.5")
-	}
-	if entry.Code != 200 {
-		t.Errorf("Code: got %d, want %d", entry.Code, 200)
-	}
-	if entry.Method != "GET" {
-		t.Errorf("Method: got %q, want %q", entry.Method, "GET")
-	}
-}
-
-func TestCreateEntryLogfmt(t *testing.T) {
-	setupTestGlobals()
-	config.LogType = "logfmt"
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `172.16.0.55 - user [10/Feb/2026:15:30:00 +0000] PUT /update HTTP/1.1 200 512`
-	entry := createEntry(line)
-
-	if entry.IP != "172.16.0.55" {
-		t.Errorf("IP: got %q, want %q", entry.IP, "172.16.0.55")
-	}
-	if entry.Code != 200 {
-		t.Errorf("Code: got %d, want %d", entry.Code, 200)
-	}
-	if entry.Method != "PUT" {
-		t.Errorf("Method: got %q, want %q", entry.Method, "PUT")
-	}
-}
-
-// ──────────────────────────────────────────────
-// WriteOutputFiles — N=0 (ip-list.txt branch)
-// ──────────────────────────────────────────────
-
-func TestWriteOutputFilesAllIPs(t *testing.T) {
-	setupTestGlobals()
-	n := 0
-	topIPsCount = &n
-	dir := t.TempDir()
-	config.OutputFolder = dir + "/"
-
-	l := Log2Analyze{
-		FileName:   "test.log",
-		DateLayout: "02/Jan/2006:15:04:05 -0700",
-		EntryCount: 2,
-		Entries: []LogEntry{
-			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: time.Date(2026, 2, 10, 12, 1, 0, 0, time.UTC), Method: "GET", Request: "/a", Code: 200},
-			{IP: "2.2.2.2", Class: "2.2.2.2", TimeStamp: time.Date(2026, 2, 10, 12, 2, 0, 0, time.UTC), Method: "POST", Request: "/b", Code: 201},
-		},
-	}
-
-	topIPs := map[string]int{"1.1.1.1": 1, "2.2.2.2": 1}
-	codeCounts := map[int]int{200: 1, 201: 1}
-
-	l.WriteOutputFiles(topIPs, codeCounts)
-
-	// verify ip-list.txt was created
-	ipListFile := dir + "/ip-list.txt"
-	if _, err := os.Stat(ipListFile); os.IsNotExist(err) {
-		t.Error("expected ip-list.txt to be created when topIPsCount=0")
-	}
-
-	// verify content contains the IPs
-	content, err := os.ReadFile(ipListFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := string(content)
-	if !strings.Contains(s, "1.1.1.1") || !strings.Contains(s, "2.2.2.2") {
-		t.Errorf("ip-list.txt missing expected IPs, got: %s", s)
-	}
-}
-
-// ──────────────────────────────────────────────
-// Short line padding for other parsers
-// ──────────────────────────────────────────────
-
-func TestParseApacheAtmireShortLine(t *testing.T) {
-	setupTestGlobals()
-
-	// Only 8 parts after quote removal & split → triggers len(parts) < 9 padding
-	line := `192.168.1.1 - - [10/Feb/2026:12:00:00 +0000] "GET /" 200`
-	ip, _, _, method, _, _, _ := parseApacheAtmire(line)
-
-	if ip != "192.168.1.1" {
-		t.Errorf("ip: got %q, want %q", ip, "192.168.1.1")
-	}
-	if method != "GET" {
-		t.Errorf("method: got %q, want %q", method, "GET")
-	}
-}
-
-func TestParseLogShortLine(t *testing.T) {
-	setupTestGlobals()
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `172.16.0.55 - user [10/Feb/2026:15:30:00 +0000] GET /page HTTP/1.1`
-	ip, _, _, method, _, _, _ := parseLog(line)
-
-	if ip != "172.16.0.55" {
-		t.Errorf("ip: got %q, want %q", ip, "172.16.0.55")
-	}
-	if method != "GET" {
-		t.Errorf("method: got %q, want %q", method, "GET")
-	}
-}
-
-// ──────────────────────────────────────────────
-// RetrieveEntries — noResponseCode filter
-// ──────────────────────────────────────────────
-
 func TestRetrieveEntriesNoResponseCodeFilter(t *testing.T) {
 	setupTestGlobals()
-	config.LogType = "apache"
 	nrc := 404
 	noResponseCode = &nrc
 
@@ -1258,8 +1187,92 @@ func TestRetrieveEntriesNoResponseCodeFilter(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// WriteOutputFiles — combined mode with query string and time range
+// WriteOutputFiles
 // ──────────────────────────────────────────────
+
+func TestWriteOutputFilesCombined(t *testing.T) {
+	setupTestGlobals()
+	cb := true
+	combinedFile = &cb
+	tr := 5
+	timeRange = &tr
+	config.OutputFolder = os.TempDir() + "/"
+
+	l := Log2Analyze{
+		FileName:   "test.log",
+		DateLayout: "02/Jan/2006:15:04:05 -0700",
+		StartTime:  time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 2, 10, 12, 5, 0, 0, time.UTC),
+		EntryCount: 2,
+		Entries: []LogEntry{
+			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: time.Date(2026, 2, 10, 12, 1, 0, 0, time.UTC), Method: "GET", Request: "/a", Code: 200},
+			{IP: "2.2.2.2", Class: "2.2.2.2", TimeStamp: time.Date(2026, 2, 10, 12, 2, 0, 0, time.UTC), Method: "POST", Request: "/b", Code: 201},
+		},
+	}
+
+	topIPs := map[string]int{"1.1.1.1": 1, "2.2.2.2": 1}
+	codeCounts := map[int]int{200: 1, 201: 1}
+
+	l.WriteOutputFiles(topIPs, codeCounts)
+}
+
+func TestWriteOutputFilesSeparate(t *testing.T) {
+	setupTestGlobals()
+	cb := false
+	combinedFile = &cb
+	config.OutputFolder = os.TempDir() + "/"
+
+	l := Log2Analyze{
+		FileName:   "test.log",
+		DateLayout: "02/Jan/2006:15:04:05 -0700",
+		EntryCount: 1,
+		Entries: []LogEntry{
+			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: time.Date(2026, 2, 10, 12, 1, 0, 0, time.UTC), Method: "GET", Request: "/x", Code: 200},
+		},
+	}
+
+	topIPs := map[string]int{"1.1.1.1": 1}
+	codeCounts := map[int]int{200: 1}
+
+	l.WriteOutputFiles(topIPs, codeCounts)
+}
+
+func TestWriteOutputFilesAllIPs(t *testing.T) {
+	setupTestGlobals()
+	n := 0
+	topIPsCount = &n
+	dir := t.TempDir()
+	config.OutputFolder = dir + "/"
+
+	l := Log2Analyze{
+		FileName:   "test.log",
+		DateLayout: "02/Jan/2006:15:04:05 -0700",
+		EntryCount: 2,
+		Entries: []LogEntry{
+			{IP: "1.1.1.1", Class: "1.1.1.1", TimeStamp: time.Date(2026, 2, 10, 12, 1, 0, 0, time.UTC), Method: "GET", Request: "/a", Code: 200},
+			{IP: "2.2.2.2", Class: "2.2.2.2", TimeStamp: time.Date(2026, 2, 10, 12, 2, 0, 0, time.UTC), Method: "POST", Request: "/b", Code: 201},
+		},
+	}
+
+	topIPs := map[string]int{"1.1.1.1": 1, "2.2.2.2": 1}
+	codeCounts := map[int]int{200: 1, 201: 1}
+
+	l.WriteOutputFiles(topIPs, codeCounts)
+
+	ipListFile := dir + "/ip-list.txt"
+	if _, err := os.Stat(ipListFile); os.IsNotExist(err) {
+		t.Error("expected ip-list.txt to be created when topIPsCount=0")
+	}
+
+	content, err := os.ReadFile(ipListFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(content)
+	if !strings.Contains(s, "1.1.1.1") || !strings.Contains(s, "2.2.2.2") {
+		t.Errorf("ip-list.txt missing expected IPs, got: %s", s)
+	}
+}
 
 func TestWriteOutputFilesCombinedWithQueryString(t *testing.T) {
 	setupTestGlobals()
@@ -1285,69 +1298,5 @@ func TestWriteOutputFilesCombinedWithQueryString(t *testing.T) {
 	topIPs := map[string]int{"1.1.1.1": 1}
 	codeCounts := map[int]int{200: 1}
 
-	// should not panic
 	l.WriteOutputFiles(topIPs, codeCounts)
-}
-
-// ──────────────────────────────────────────────
-// Timestamp parse errors (malformed dates)
-// ──────────────────────────────────────────────
-
-func TestParseApacheBadTimestamp(t *testing.T) {
-	setupTestGlobals()
-
-	line := `192.168.1.1 - - [BADDATE +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
-	ip, _, _, _, _, code, _ := parseApache(line)
-
-	if ip != "192.168.1.1" {
-		t.Errorf("ip: got %q, want %q", ip, "192.168.1.1")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
-}
-
-func TestParseApacheAtmireBadTimestamp(t *testing.T) {
-	setupTestGlobals()
-
-	line := `192.168.1.1 - - [BADDATE +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
-	ip, _, _, _, _, code, _ := parseApacheAtmire(line)
-
-	if ip != "192.168.1.1" {
-		t.Errorf("ip: got %q, want %q", ip, "192.168.1.1")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
-}
-
-func TestParseRosettaBadTimestamp(t *testing.T) {
-	setupTestGlobals()
-
-	line := `server1 10.0.0.5 - admin [BADDATE +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
-	ip, _, _, _, _, code, _ := parseRosetta(line)
-
-	if ip != "10.0.0.5" {
-		t.Errorf("ip: got %q, want %q", ip, "10.0.0.5")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
-}
-
-func TestParseLogBadTimestamp(t *testing.T) {
-	setupTestGlobals()
-	config.LogFormat = `%h %l %u %t %r %>s %O`
-	placeholderLut = make(map[string]int)
-	fillPlaceholderLut()
-
-	line := `172.16.0.55 - user [BADDATE +0000] GET /page HTTP/1.1 200 512`
-	ip, _, _, _, _, code, _ := parseLog(line)
-
-	if ip != "172.16.0.55" {
-		t.Errorf("ip: got %q, want %q", ip, "172.16.0.55")
-	}
-	if code != 200 {
-		t.Errorf("code: got %d, want %d", code, 200)
-	}
 }

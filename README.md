@@ -7,6 +7,8 @@ Note: It takes the timestamp from the first log entry for the date to analyze
 
 Also note: Actually there is no Windows-Version!
 
+And finally please note: This Software was originally developed in 2025 by human brain. Since 2026 AI assists in writing tests and new functions.
+
 ## why it's useful:
 When your server get's hammered by requests you have to react quickly without spending the time with searching for the logfile and having to write complex greps to see, who's doing whta on your machine.
 

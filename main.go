@@ -29,12 +29,32 @@ var (
 	ipAddress          = flag.String("i", "", "use -i to provide an IP adress to analyze")
 	notIP              = flag.String("ni", "", "use -ni to provide an IP adress to ignore in analysis")
 	queryString        = flag.String("q", "", "use -q to provide a string to query the logfile for")
-	logType            = flag.String("lt", "apache", "use -lt to provide a log type (apache_atmire | rosetta | apache | logfmt)")
-	logFormat          = flag.String("lf", "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"", "use -lf to provide a log format (according to apache log strings)")
+	logType            = flag.String("lt", "apache_combined", "use -lt to provide a log type (apache_combined | apache_common | apache_atmire | nginx_combined | haproxy_http | rosetta | custom)")
 	responseCode       = flag.Int("r", 0, "use -r to provide a response code to filter for")
 	noResponseCode     = flag.Int("nr", 0, "use -nr to provide a response code to ignore in analysis")
 	combinedFile       = flag.Bool("combined", false, "use -combined to write all top-IPs into one file")
+	rt                 = flag.Bool("rt", false, "Show top N slowest requests by response time")
 )
+
+// sortByRtime returns a formatted string listing the entries of rtimeMap
+// sorted in descending order by response time (seconds).
+func sortByRtime(rtimeMap map[string]float64) string {
+	var output string
+	entries := len(rtimeMap)
+	if entries > 0 {
+		ips := make([]string, 0, entries)
+		for ip := range rtimeMap {
+			ips = append(ips, ip)
+		}
+		sort.SliceStable(ips, func(i, j int) bool {
+			return rtimeMap[ips[i]] > rtimeMap[ips[j]]
+		})
+		for _, ip := range ips {
+			output += fmt.Sprintf("\t%s\t: %.1f\n", ip, rtimeMap[ip])
+		}
+	}
+	return output
+}
 
 // sortByRcount returns a formatted string listing the entries of ipRcount
 // sorted in descending order by request count.
@@ -91,13 +111,9 @@ func main() {
 	}
 	if FlagIsPassed("lt") || config.LogType == "" {
 		config.LogType = *logType
+		config.applyLogTypePreset()
 		LogIt.Info("setting LogType to " + *logType)
 		fmt.Println("setting LogType to " + *logType)
-	}
-	if FlagIsPassed("l") || config.LogFormat == "" {
-		config.LogFormat = *logFormat
-		LogIt.Info("setting log format to " + *logFormat)
-		fmt.Println("setting log format to " + *logFormat)
 	}
 	if FlagIsPassed("d") {
 		log2Analyze.Date2analyze = *date2analyze
@@ -160,5 +176,15 @@ func main() {
 	fmt.Println("\t------------------------------")
 	fmt.Println(sortedIPs)
 	LogIt.Info(sortedIPs)
+	if FlagIsPassed("rt") {
+		topLongRequests := log2Analyze.GetTopLongRequests()
+		log2Analyze.WriteResponseTimeFile(topLongRequests)
+		sortedRequests := sortByRtime(topLongRequests)
+		fmt.Println("")
+		fmt.Println("\tTop long Requests: Response Time (s)")
+		fmt.Println("\t------------------------------------")
+		fmt.Println(sortedRequests)
+		LogIt.Info(sortedRequests)
+	}
 	fmt.Printf("finished in %v\n", time.Since(pst))
 }
