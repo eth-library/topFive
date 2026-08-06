@@ -43,9 +43,9 @@ func safeGet(parts []string, i int) string {
 	}
 	return ""
 }
-
 // ipToClass derives the aggregation class from a raw IP string according to
-// the -k flag (A/B/C/D). Non-IPv4 addresses are returned unchanged.
+// the -k flag (A/B/C/D), returning standard CIDR notation (e.g. 45.0.0.0/8).
+// Non-IPv4 addresses are returned unchanged.
 func ipToClass(ip string) string {
 	p := strings.Split(ip, ".")
 	if len(p) != 4 {
@@ -53,13 +53,13 @@ func ipToClass(ip string) string {
 	}
 	switch *IPclass {
 	case "A":
-		return p[0]
+		return p[0] + ".0.0.0/8"
 	case "B":
-		return p[0] + "." + p[1]
+		return p[0] + "." + p[1] + ".0.0/16"
 	case "C":
-		return p[0] + "." + p[1] + "." + p[2]
+		return p[0] + "." + p[1] + "." + p[2] + ".0/24"
 	default: // "D" and anything else
-		return ip
+		return ip + "/32"
 	}
 }
 

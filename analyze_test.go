@@ -87,8 +87,8 @@ func TestParseGenericApache(t *testing.T) {
 	if ip != "192.168.1.100" {
 		t.Errorf("ip: got %q, want %q", ip, "192.168.1.100")
 	}
-	if class != "192.168.1.100" {
-		t.Errorf("class: got %q, want %q", class, "192.168.1.100")
+	if class != "192.168.1.100/32" {
+		t.Errorf("class: got %q, want %q", class, "192.168.1.100/32")
 	}
 	expectedTime := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
 	if !ts.Equal(expectedTime) {
@@ -116,8 +116,8 @@ func TestParseGenericApacheIPClassA(t *testing.T) {
 	if ip != "10.20.30.40" {
 		t.Errorf("ip: got %q, want %q", ip, "10.20.30.40")
 	}
-	if class != "10" {
-		t.Errorf("class A: got %q, want %q", class, "10")
+	if class != "10.0.0.0/8" {
+		t.Errorf("class A: got %q, want %q", class, "10.0.0.0/8")
 	}
 	if method != "POST" {
 		t.Errorf("method: got %q, want %q", method, "POST")
@@ -138,8 +138,8 @@ func TestParseGenericApacheIPClassB(t *testing.T) {
 	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
 	_, class, _, _, _, _, _, _ := parseGeneric(line)
 
-	if class != "10.20" {
-		t.Errorf("class B: got %q, want %q", class, "10.20")
+	if class != "10.20.0.0/16" {
+		t.Errorf("class B: got %q, want %q", class, "10.20.0.0/16")
 	}
 }
 
@@ -151,8 +151,8 @@ func TestParseGenericApacheIPClassC(t *testing.T) {
 	line := `10.20.30.40 - - [10/Feb/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 100 "-" "-"`
 	_, class, _, _, _, _, _, _ := parseGeneric(line)
 
-	if class != "10.20.30" {
-		t.Errorf("class C: got %q, want %q", class, "10.20.30")
+	if class != "10.20.30.0/24" {
+		t.Errorf("class C: got %q, want %q", class, "10.20.30.0/24")
 	}
 }
 
@@ -422,8 +422,8 @@ func TestParseGenericRosettaIPClassA(t *testing.T) {
 
 	_, class, _, _, _, _, _, _ := parseGeneric(realRosettaLine)
 
-	if class != "129" {
-		t.Errorf("class A: got %q, want %q", class, "129")
+	if class != "129.0.0.0/8" {
+		t.Errorf("class A: got %q, want %q", class, "129.0.0.0/8")
 	}
 }
 
@@ -434,8 +434,8 @@ func TestParseGenericRosettaIPClassB(t *testing.T) {
 
 	_, class, _, _, _, _, _, _ := parseGeneric(realRosettaLine)
 
-	if class != "129.132" {
-		t.Errorf("class B: got %q, want %q", class, "129.132")
+	if class != "129.132.0.0/16" {
+		t.Errorf("class B: got %q, want %q", class, "129.132.0.0/16")
 	}
 }
 
@@ -446,8 +446,8 @@ func TestParseGenericRosettaIPClassC(t *testing.T) {
 
 	_, class, _, _, _, _, _, _ := parseGeneric(realRosettaLine)
 
-	if class != "129.132.181" {
-		t.Errorf("class C: got %q, want %q", class, "129.132.181")
+	if class != "129.132.181.0/24" {
+		t.Errorf("class C: got %q, want %q", class, "129.132.181.0/24")
 	}
 }
 
