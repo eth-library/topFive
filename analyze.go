@@ -276,7 +276,8 @@ func (l Log2Analyze) WriteOutputFiles(topIPs map[string]int, codeCounts map[int]
 			}
 		} else {
 			for ip, count := range topIPs {
-				file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + ip + ".txt")
+				safeIP := strings.Split(ip, "/")[0]
+				file, err := os.Create(config.OutputFolder + fmt.Sprintf("%05d", count) + "_" + safeIP + ".txt")
 				if err != nil {
 					log.Fatal(err)
 				}
